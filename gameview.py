@@ -12,8 +12,8 @@ class GameView(arcade.View):
 
     world_width: Final[int]
     world_height: Final[int]
-    player: Final[arcade.Sprite]
-    player_list: Final[arcade.SpriteList[arcade.Sprite]]
+    player: Final[arcade.TextureAnimationSprite]
+    player_list: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
     walls: Final[arcade.SpriteList[arcade.Sprite]]
     physics_engine: Final[arcade.PhysicsEngineSimple]
@@ -29,8 +29,8 @@ class GameView(arcade.View):
         # Setup our game
         self.world_width = 40 * TILE_SIZE
         self.world_height = 20 * TILE_SIZE
-        self.player = arcade.Sprite(
-            TEXTURE_PLAYER_IDLE_DOWN,
+        self.player = arcade.TextureAnimationSprite(
+            animation=ANIMATION_PLAYER_IDLE_DOWN,
             scale=SCALE, center_x=grid_to_pixels(2), center_y=grid_to_pixels(2)
         )
         self.player_list = arcade.SpriteList()
@@ -149,4 +149,5 @@ class GameView(arcade.View):
         This is where in-world time "advances", or "ticks".
         """
         self.physics_engine.update()
+        self.player.update_animation()
         self.camera.position = self.player.position
