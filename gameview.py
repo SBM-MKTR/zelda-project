@@ -16,6 +16,7 @@ class GameView(arcade.View):
     player_list: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
     walls: Final[arcade.SpriteList[arcade.Sprite]]
+    crystals: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     physics_engine: Final[arcade.PhysicsEngineSimple]
     camera: Final[arcade.camera.Camera2D]
 
@@ -94,6 +95,16 @@ class GameView(arcade.View):
                 center_y=grid_to_pixels(y),
             )
             self.walls.append(spr)
+        # cristaux à ramasser
+        self.crystals = arcade.SpriteList(use_spatial_hash=True)
+        for x, y in [(5, 2), (6, 5), (3, 5)]:
+            crystal = arcade.TextureAnimationSprite(
+                animation=ANIMATION_CRYSTAL,
+                scale=SCALE,
+                center_x=grid_to_pixels(x),
+                center_y=grid_to_pixels(y),
+            )
+            self.crystals.append(crystal)
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
 
@@ -111,7 +122,12 @@ class GameView(arcade.View):
         with self.camera.activate():
              self.grounds.draw()
              self.walls.draw()
+             self.crystals.draw()
              self.player_list.draw()
+             # Hit boxes (debug)
+             self.walls.draw_hit_boxes()
+             self.crystals.draw_hit_boxes()
+             self.player_list.draw_hit_boxes()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
@@ -150,4 +166,8 @@ class GameView(arcade.View):
         """
         self.physics_engine.update()
         self.player.update_animation()
+        self.crystals.update_animation()
+        # ramasser les cristaux en collision avec le joueur
+        for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
+            crystal.remove_from_sprite_lists()
         self.camera.position = self.player.position
