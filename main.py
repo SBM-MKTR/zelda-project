@@ -9,7 +9,7 @@ def main() -> None:
     game_view = GameView()
     window.show_view(game_view)
     arcade.run()
-
+#dfnv
 
 if __name__ == "__main__":
     main()
