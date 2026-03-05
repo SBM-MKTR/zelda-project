@@ -3,6 +3,7 @@ import arcade
 
 from constants import *
 from textures import *
+from sounds import *
 
 def grid_to_pixels(i : int) ->int:
     return i * TILE_SIZE + (TILE_SIZE // 2)
@@ -19,6 +20,7 @@ class GameView(arcade.View):
     crystals: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     physics_engine: Final[arcade.PhysicsEngineSimple]
     camera: Final[arcade.camera.Camera2D]
+    crystals_sound: Final[arcade.Sound]
 
     def __init__(self) -> None:
         # Magical incantion: initialize the Arcade view
@@ -107,6 +109,7 @@ class GameView(arcade.View):
             self.crystals.append(crystal)
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
+        self.crystals_sound = CRYSTALS_SOUND
 
     def on_show_view(self) -> None:
         """Called automatically by 'window.show_view(game_view)' in main.py."""
@@ -170,4 +173,5 @@ class GameView(arcade.View):
         # ramasser les cristaux en collision avec le joueur
         for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
             crystal.remove_from_sprite_lists()
+            arcade.play_sound(self.crystals_sound)
         self.camera.position = self.player.position
