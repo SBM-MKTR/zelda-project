@@ -10,5 +10,8 @@ TILE_SIZE = 32
 PLAYER_MOVEMENT_SPEED = 4
 """Speed of the player, in pixels per frame."""
 
+SPINNER_MOVEMENT_SPEED = 3
+"""Speed of the spinners, in pixels per frame."""
+
 MAX_WINDOW_WIDTH = 14 * TILE_SIZE
 MAX_WINDOW_HEIGHT = 14 * TILE_SIZE
