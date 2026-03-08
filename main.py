@@ -9,20 +9,17 @@ from map import *
 
 DEFAULT_MAP_PATH = Path("maps") / "map1.txt"
 
-
-def _get_map_path(argv: list[str]) -> Path:
-    if len(argv) > 2:
-        raise ValueError("Usage: uv run main.py [map_file]")
-    return Path(argv[1]) if len(argv) == 2 else DEFAULT_MAP_PATH
-
-
 def main() -> None:
-    try:
-        map_path = _get_map_path(sys.argv)
-        game_map = Map.from_file(map_path)
-    except ValueError as exc:
-        print(exc)
+    if len(sys.argv) == 1:
+        map_path = DEFAULT_MAP_PATH
+    elif len(sys.argv) == 2:
+        map_path = sys.argv[1]
+    else:
+        print("Usage: uv run main.py [map_file]")
         return
+
+    try:
+        game_map = Map.from_file(map_path)
     except OSError:
         print(f"Impossible d'ouvrir le fichier de map : {map_path}")
         return
