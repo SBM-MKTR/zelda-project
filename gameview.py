@@ -4,6 +4,7 @@ import arcade
 from constants import *
 from textures import *
 from sounds import *
+from map import *
 
 def grid_to_pixels(i : int) ->int:
     return i * TILE_SIZE + (TILE_SIZE // 2)
@@ -11,6 +12,7 @@ def grid_to_pixels(i : int) ->int:
 class GameView(arcade.View):
     """Main in-game view."""
 
+    __map: Final[Map]
     world_width: Final[int]
     world_height: Final[int]
     player: Final[arcade.TextureAnimationSprite]
@@ -22,25 +24,28 @@ class GameView(arcade.View):
     camera: Final[arcade.camera.Camera2D]
     crystals_sound: Final[arcade.Sound]
 
-    def __init__(self) -> None:
+    def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
         super().__init__()
 
+        self.__map = map
         # Choose a nice comfy background color
         self.background_color = arcade.csscolor.CORNFLOWER_BLUE
 
         # Setup our game
-        self.world_width = 40 * TILE_SIZE
-        self.world_height = 20 * TILE_SIZE
+        self.world_width = map.width * TILE_SIZE
+        self.world_height = map.height * TILE_SIZE
         self.player = arcade.TextureAnimationSprite(
             animation=ANIMATION_PLAYER_IDLE_DOWN,
-            scale=SCALE, center_x=grid_to_pixels(2), center_y=grid_to_pixels(2)
+            scale=SCALE, center_x=grid_to_pixels(map.player_start_x), center_y=grid_to_pixels(map.player_start_y)
         )
         self.player_list = arcade.SpriteList()
         self.player_list.append(self.player)
         self.grounds = arcade.SpriteList(use_spatial_hash=True)
-        for x in range(40):
-            for y in range(20):
+        self.walls = arcade.SpriteList(use_spatial_hash=True)
+        self.crystals = arcade.SpriteList(use_spatial_hash=True)
+        for y in range(map.height):
+            for x in range(map.width):
                 grass = arcade.Sprite(
                     TEXTURE_GRASS,
                     scale=SCALE,
@@ -49,64 +54,23 @@ class GameView(arcade.View):
                 )
                 self.grounds.append(grass)
 
-        self.walls = arcade.SpriteList(use_spatial_hash=True)
-        for x, y in [(3, 6), (7, 2), (2, 10), (3, 8)]:
-            spr = arcade.Sprite(
-                TEXTURE_BUSH,
-                scale=SCALE,
-                center_x=grid_to_pixels(x),
-                center_y=grid_to_pixels(y),
-            )
-            self.walls.append(spr)
-        # Add bushes along the borders to prevent leaving the world
-        # Top border
-        for x in range(40):
-            spr = arcade.Sprite(
-                TEXTURE_BUSH,
-                scale=SCALE,
-                center_x=grid_to_pixels(x),
-                center_y=grid_to_pixels(19),
-            )
-            self.walls.append(spr)
-
-        # Bottom border
-        for x in range(40):
-            spr = arcade.Sprite(
-                TEXTURE_BUSH,
-                scale=SCALE,
-                center_x=grid_to_pixels(x),
-                center_y=grid_to_pixels(0),
-            )
-            self.walls.append(spr)
-
-        # Left border
-        for y in range(20):
-            spr = arcade.Sprite(
-                TEXTURE_BUSH,
-                scale=SCALE,
-                center_x=grid_to_pixels(0),
-                center_y=grid_to_pixels(y),
-            )
-            self.walls.append(spr)
-        # Right border
-        for y in range(20):
-            spr = arcade.Sprite(
-                TEXTURE_BUSH,
-                scale=SCALE,
-                center_x=grid_to_pixels(39),
-                center_y=grid_to_pixels(y),
-            )
-            self.walls.append(spr)
-        # cristaux à ramasser
-        self.crystals = arcade.SpriteList(use_spatial_hash=True)
-        for x, y in [(5, 2), (6, 5), (3, 5)]:
-            crystal = arcade.TextureAnimationSprite(
-                animation=ANIMATION_CRYSTAL,
-                scale=SCALE,
-                center_x=grid_to_pixels(x),
-                center_y=grid_to_pixels(y),
-            )
-            self.crystals.append(crystal)
+                cell = map.get(x, y)
+                if cell == GridCell.BUSH:
+                    bush = arcade.Sprite(
+                        TEXTURE_BUSH,
+                        scale=SCALE,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y),
+                    )
+                    self.walls.append(bush)
+                elif cell == GridCell.CRYSTAL:
+                    crystal = arcade.TextureAnimationSprite(
+                        animation=ANIMATION_CRYSTAL,
+                        scale=SCALE,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y),
+                    )
+                    self.crystals.append(crystal)
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
         self.crystals_sound = CRYSTALS_SOUND
@@ -137,8 +101,7 @@ class GameView(arcade.View):
         match symbol:
             case arcade.key.ESCAPE:
                 # redémarrer le jeu en recréant la vue
-                new_view = GameView()
-                self.window.show_view(new_view)
+                self.window.show_view(GameView(self.__map))
             case arcade.key.RIGHT:
                 # start moving to the right
                 self.player.change_x = +PLAYER_MOVEMENT_SPEED

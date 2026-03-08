@@ -74,3 +74,10 @@ ANIMATION_CRYSTAL: Final[arcade.TextureAnimation] = \
         "/Props_Items_(animated)/crystal_item_anim_strip_6.png",
         6,
     )
+
+ANIMATION_SPINNERS : Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Enemies_Sprites/Spinner_Sprites"
+        "/spinner_run_attack_anim_all_dir_strip_8.png",
+        3,
+    )
