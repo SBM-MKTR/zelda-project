@@ -35,6 +35,12 @@ class GameView(arcade.View):
         # Choose a nice comfy background color
         self.background_color = arcade.csscolor.CORNFLOWER_BLUE
 
+        # Keyboard state
+        self.right_pressed = False
+        self.left_pressed = False
+        self.up_pressed = False
+        self.down_pressed = False
+
         # Setup our game
         self.world_width = map.width * TILE_SIZE
         self.world_height = map.height * TILE_SIZE
@@ -111,6 +117,8 @@ class GameView(arcade.View):
                     )
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
+        self.camera_margin_x = 40
+        self.camera_margin_y = 30
         self.crystals_sound = CRYSTALS_SOUND
 
     def _restart(self) -> None:
@@ -124,20 +132,24 @@ class GameView(arcade.View):
         self.window.width = min(MAX_WINDOW_WIDTH, self.world_width)
         self.window.height = min(MAX_WINDOW_HEIGHT, self.world_height)
 
+        self.camera.position = (self.player.center_x, self.player.center_y)
+        self._update_camera()
+
+
     def on_draw(self) -> None:
         """Render the screen."""
         self.clear() # always start with self.clear()
         with self.camera.activate():
-             self.grounds.draw()
-             self.walls.draw()
-             self.crystals.draw()
-             self.spinners.draw()
-             self.player_list.draw()
-             # Hit boxes (debug)
-             self.walls.draw_hit_boxes()
-             self.crystals.draw_hit_boxes()
-             self.spinners.draw_hit_boxes()
-             self.player_list.draw_hit_boxes()
+            self.grounds.draw()
+            self.walls.draw()
+            self.crystals.draw()
+            self.spinners.draw()
+            self.player_list.draw()
+            # Hit boxes (debug)
+            self.walls.draw_hit_boxes()
+            self.crystals.draw_hit_boxes()
+            self.spinners.draw_hit_boxes()
+            self.player_list.draw_hit_boxes()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
@@ -146,26 +158,48 @@ class GameView(arcade.View):
                 self._restart()
             case arcade.key.RIGHT:
                 # start moving to the right
+                self.right_pressed = True
                 self.player.change_x = +PLAYER_MOVEMENT_SPEED
             case arcade.key.LEFT:
                 # start moving to the left
+                self.left_pressed = True
                 self.player.change_x = -PLAYER_MOVEMENT_SPEED
             case arcade.key.UP:
                 # start moving upwards
+                self.up_pressed = True
                 self.player.change_y = +PLAYER_MOVEMENT_SPEED
             case arcade.key.DOWN:
                 # start moving downwards
+                self.down_pressed = True
                 self.player.change_y = -PLAYER_MOVEMENT_SPEED
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
         match symbol:
-            case arcade.key.RIGHT | arcade.key.LEFT:
-                # stop horizontal movement
-                self.player.change_x = 0
-            case arcade.key.UP | arcade.key.DOWN:
-                # stop vertical movement
-                self.player.change_y = 0
+            case arcade.key.RIGHT:
+                self.right_pressed = False
+            case arcade.key.LEFT:
+                self.left_pressed = False
+            case arcade.key.UP:
+                self.up_pressed = False
+            case arcade.key.DOWN:
+                self.down_pressed = False
+
+        # Update horizontal movement
+        if self.right_pressed and not self.left_pressed:
+            self.player.change_x = +PLAYER_MOVEMENT_SPEED
+        elif self.left_pressed and not self.right_pressed:
+            self.player.change_x = -PLAYER_MOVEMENT_SPEED
+        else:
+            self.player.change_x = 0
+
+        # Update vertical movement
+        if self.up_pressed and not self.down_pressed:
+            self.player.change_y = +PLAYER_MOVEMENT_SPEED
+        elif self.down_pressed and not self.up_pressed:
+            self.player.change_y = -PLAYER_MOVEMENT_SPEED
+        else:
+            self.player.change_y = 0
 
     def _update_spinners(self) -> None:
         for spinner, min_x_pixels, max_x_pixels, min_y_pixels, max_y_pixels in self.__spinner_infos:
@@ -188,6 +222,36 @@ class GameView(arcade.View):
                 spinner.center_y = min_y_pixels
                 spinner.change_y = SPINNER_MOVEMENT_SPEED
 
+    def _update_camera(self) -> None:
+        screen_w = self.window.width
+        screen_h = self.window.height
+        cam_x, cam_y = self.camera.position
+
+        # Marges (zone où le joueur peut bouger sans déplacer la caméra)
+        margin_x = self.camera_margin_x
+        margin_y = self.camera_margin_y
+
+        # Déplacer horizontalement
+        if self.player.center_x < cam_x - margin_x:
+            cam_x = self.player.center_x + margin_x
+        elif self.player.center_x > cam_x + margin_x:
+            cam_x = self.player.center_x - margin_x
+
+        # Déplacer verticalement
+        if self.player.center_y < cam_y - margin_y:
+            cam_y = self.player.center_y + margin_y
+        elif self.player.center_y > cam_y + margin_y:
+            cam_y = self.player.center_y - margin_y
+
+        # Limiter la caméra pour ne jamais montrer l’extérieur du monde
+        half_w = screen_w / 2
+        half_h = screen_h / 2
+        cam_x = max(half_w, min(cam_x, self.world_width - half_w))
+        cam_y = max(half_h, min(cam_y, self.world_height - half_h))
+
+        self.camera.position = (cam_x, cam_y)
+
+
     def on_update(self, delta_time: float) -> None:
         """Called once per frame, before drawing.
 
@@ -208,4 +272,5 @@ class GameView(arcade.View):
         for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
             crystal.remove_from_sprite_lists()
             arcade.play_sound(self.crystals_sound)
-        self.camera.position = self.player.position
+
+        self._update_camera()
