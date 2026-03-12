@@ -22,9 +22,11 @@ class GameView(arcade.View):
     crystals: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     physics_engine: Final[arcade.PhysicsEngineSimple]
     camera: Final[arcade.camera.Camera2D]
+    camera_ui: Final[arcade.camera.Camera2D]
     crystals_sound: Final[arcade.Sound]
     spinners: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     __spinner_infos: Final[list[tuple[arcade.TextureAnimationSprite, int, int, int, int]]]
+    score: int
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -117,9 +119,11 @@ class GameView(arcade.View):
                     )
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
+        self.camera_ui = arcade.camera.Camera2D()
         self.camera_margin_x = 40
         self.camera_margin_y = 30
         self.crystals_sound = CRYSTALS_SOUND
+        self.score = 0
 
     def _restart(self) -> None:
         self.window.show_view(GameView(self.__map))
@@ -150,6 +154,16 @@ class GameView(arcade.View):
             self.crystals.draw_hit_boxes()
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
+
+        with self.camera_ui.activate():
+            score_text = arcade.Text(
+                f"Score: {self.score}",
+                10,
+                self.window.height - 30,
+                arcade.color.WHITE,
+                16,
+            )
+            score_text.draw()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
@@ -272,5 +286,6 @@ class GameView(arcade.View):
         for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
             crystal.remove_from_sprite_lists()
             arcade.play_sound(self.crystals_sound)
+            self.score += 1
 
         self._update_camera()
