@@ -81,3 +81,5 @@ ANIMATION_SPINNERS : Final[arcade.TextureAnimation] = \
         "/spinner_run_attack_anim_all_dir_strip_8.png",
         3,
     )
+
+TEXTURE_HOLE: Final[arcade.Texture] = _overworld_grid[18*4 + 8]

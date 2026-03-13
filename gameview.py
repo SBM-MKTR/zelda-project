@@ -27,6 +27,7 @@ class GameView(arcade.View):
     spinners: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     __spinner_infos: Final[list[tuple[arcade.TextureAnimationSprite, int, int, int, int]]]
     score: int
+    holes: Final[arcade.SpriteList[arcade.Sprite]]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -59,6 +60,7 @@ class GameView(arcade.View):
         self.__spinner_infos: list[
             tuple[arcade.TextureAnimationSprite, int, int, int, int]
         ] = []
+        self.holes = arcade.SpriteList(use_spatial_hash=True)
         for y in range(map.height):
             for x in range(map.width):
                 grass = arcade.Sprite(
@@ -117,6 +119,15 @@ class GameView(arcade.View):
                             max_y_pixels,
                         )
                     )
+                elif cell == GridCell.HOLE:
+                    hole = arcade.Sprite(
+                        TEXTURE_HOLE,
+                        scale=SCALE,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y),
+                    )
+                    self.holes.append(hole)
+
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
         self.camera_ui = arcade.camera.Camera2D()
@@ -145,6 +156,7 @@ class GameView(arcade.View):
         self.clear() # always start with self.clear()
         with self.camera.activate():
             self.grounds.draw()
+            self.holes.draw()
             self.walls.draw()
             self.crystals.draw()
             self.spinners.draw()
@@ -154,6 +166,7 @@ class GameView(arcade.View):
             self.crystals.draw_hit_boxes()
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
+            self.holes.draw_hit_boxes()
 
         with self.camera_ui.activate():
             score_text = arcade.Text(
@@ -281,6 +294,18 @@ class GameView(arcade.View):
         if arcade.check_for_collision_with_list(self.player, self.spinners):
             self._restart()
             return
+
+       # Vérifie les collisions "trous"
+        for hole in self.holes:
+            # Calculer la distance entre le joueur et le centre du trou
+            dx = self.player.center_x - hole.center_x
+            dy = self.player.center_y - hole.center_y
+            distance = (dx ** 2 + dy ** 2) ** 0.5
+
+            # Si la distance est inférieure à 16, le joueur tombe
+            if distance <= 16:
+                self._restart()
+                return
 
         # ramasser les cristaux en collision avec le joueur
         for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):

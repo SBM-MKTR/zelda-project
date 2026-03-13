@@ -14,6 +14,7 @@ class GridCell(Enum):
     CRYSTAL = "crystal"
     SPINNER_HORIZONTAL = "spinner_horizontal"
     SPINNER_VERTICAL = "spinner_vertical"
+    HOLE = "hole"
 
 @dataclass(frozen=True)
 class SpinnerBounds:
@@ -218,6 +219,8 @@ class Map:
                 return GridCell.SPINNER_HORIZONTAL
             case "S":
                 return GridCell.SPINNER_VERTICAL
+            case "O":
+                return GridCell.HOLE
             case _:
                 raise InvalidMapFileException(
                     f"invalid map character: {char!r}"
