@@ -5,6 +5,7 @@ from constants import *
 from textures import *
 from sounds import *
 from map import *
+from player import *
 
 def grid_to_pixels(i : int) ->int:
     return i * TILE_SIZE + (TILE_SIZE // 2)
@@ -15,8 +16,8 @@ class GameView(arcade.View):
     __map: Final[Map]
     world_width: Final[int]
     world_height: Final[int]
-    player: Final[arcade.TextureAnimationSprite]
-    player_list: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
+    player: Final[Player]
+    player_list: Final[arcade.SpriteList[Player]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
     walls: Final[arcade.SpriteList[arcade.Sprite]]
     crystals: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
@@ -38,19 +39,14 @@ class GameView(arcade.View):
         # Choose a nice comfy background color
         self.background_color = arcade.csscolor.CORNFLOWER_BLUE
 
-        # Keyboard state
-        self.right_pressed = False
-        self.left_pressed = False
-        self.up_pressed = False
-        self.down_pressed = False
-
         # Setup our game
         self.world_width = map.width * TILE_SIZE
         self.world_height = map.height * TILE_SIZE
-        self.player = arcade.TextureAnimationSprite(
-            animation=ANIMATION_PLAYER_IDLE_DOWN,
-            scale=SCALE, center_x=grid_to_pixels(map.player_start_x), center_y=grid_to_pixels(map.player_start_y)
-        )
+        self.player = Player(
+                             center_x=grid_to_pixels(map.player_start_x),
+                             center_y=grid_to_pixels(map.player_start_y)
+                             )
+
         self.player_list = arcade.SpriteList()
         self.player_list.append(self.player)
         self.grounds = arcade.SpriteList(use_spatial_hash=True)
@@ -139,6 +135,20 @@ class GameView(arcade.View):
     def _restart(self) -> None:
         self.window.show_view(GameView(self.__map))
 
+    @staticmethod
+    def _direction_from_key(symbol: int) -> Direction | None:
+        match symbol:
+            case arcade.key.RIGHT:
+                return Direction.EAST
+            case arcade.key.LEFT:
+                return Direction.WEST
+            case arcade.key.UP:
+                return Direction.NORTH
+            case arcade.key.DOWN:
+                return Direction.SOUTH
+            case _:
+                return None
+
     def on_show_view(self) -> None:
         """Called automatically by 'window.show_view(game_view)' in main.py."""
         # When we show the view, adjust the window's size to our world size.
@@ -162,11 +172,11 @@ class GameView(arcade.View):
             self.spinners.draw()
             self.player_list.draw()
             # Hit boxes (debug)
-            self.walls.draw_hit_boxes()
+            '''self.walls.draw_hit_boxes()
             self.crystals.draw_hit_boxes()
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
-            self.holes.draw_hit_boxes()
+            self.holes.draw_hit_boxes()'''
 
         with self.camera_ui.activate():
             score_text = arcade.Text(
@@ -177,56 +187,23 @@ class GameView(arcade.View):
                 16,
             )
             score_text.draw()
+            self.player_list.draw_hit_boxes()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
-        match symbol:
-            case arcade.key.ESCAPE:
+        if symbol == arcade.key.ESCAPE:
                 self._restart()
-            case arcade.key.RIGHT:
-                # start moving to the right
-                self.right_pressed = True
-                self.player.change_x = +PLAYER_MOVEMENT_SPEED
-            case arcade.key.LEFT:
-                # start moving to the left
-                self.left_pressed = True
-                self.player.change_x = -PLAYER_MOVEMENT_SPEED
-            case arcade.key.UP:
-                # start moving upwards
-                self.up_pressed = True
-                self.player.change_y = +PLAYER_MOVEMENT_SPEED
-            case arcade.key.DOWN:
-                # start moving downwards
-                self.down_pressed = True
-                self.player.change_y = -PLAYER_MOVEMENT_SPEED
+                return
+        direction = self._direction_from_key(symbol)
+        if direction is not None :
+            self.player.press_direction(direction)
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
-        match symbol:
-            case arcade.key.RIGHT:
-                self.right_pressed = False
-            case arcade.key.LEFT:
-                self.left_pressed = False
-            case arcade.key.UP:
-                self.up_pressed = False
-            case arcade.key.DOWN:
-                self.down_pressed = False
+        direction = self._direction_from_key(symbol)
+        if direction is not None:
+            self.player.release_direction(direction)
 
-        # Update horizontal movement
-        if self.right_pressed and not self.left_pressed:
-            self.player.change_x = +PLAYER_MOVEMENT_SPEED
-        elif self.left_pressed and not self.right_pressed:
-            self.player.change_x = -PLAYER_MOVEMENT_SPEED
-        else:
-            self.player.change_x = 0
-
-        # Update vertical movement
-        if self.up_pressed and not self.down_pressed:
-            self.player.change_y = +PLAYER_MOVEMENT_SPEED
-        elif self.down_pressed and not self.up_pressed:
-            self.player.change_y = -PLAYER_MOVEMENT_SPEED
-        else:
-            self.player.change_y = 0
 
     def _update_spinners(self) -> None:
         for spinner, min_x_pixels, max_x_pixels, min_y_pixels, max_y_pixels in self.__spinner_infos:
