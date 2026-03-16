@@ -1,4 +1,5 @@
 from typing import Final
+from enum import Enum
 import arcade
 
 from constants import *
@@ -9,6 +10,80 @@ from player import *
 
 def grid_to_pixels(i : int) ->int:
     return i * TILE_SIZE + (TILE_SIZE // 2)
+
+class BoomerangState(Enum):
+    INACTIVE = 0
+    LAUNCHING = 1
+    RETURNING = 2
+
+class Boomerang(arcade.TextureAnimationSprite):
+
+    def __init__(self) -> None:
+        super().__init__(
+            animation=ANIMATION_BOOMERANG,
+            scale=SCALE,
+        )
+
+        self.state = BoomerangState.INACTIVE
+        self.start_x = 0
+        self.start_y = 0
+        self.dir_x = 0
+        self.dir_y = 0
+
+    def launch(self, player: Player) -> None:
+        if self.state != BoomerangState.INACTIVE:
+            return
+
+        self.center_x = player.center_x
+        self.center_y = player.center_y
+
+        self.start_x = self.center_x
+        self.start_y = self.center_y
+
+        match player.direction:
+            case Direction.EAST:
+                dx, dy = 1, 0
+            case Direction.WEST:
+                dx, dy = -1, 0
+            case Direction.NORTH:
+                dx, dy = 0, 1
+            case Direction.SOUTH:
+                dx, dy = 0, -1
+
+        self.dir_x = dx
+        self.dir_y = dy
+
+        self.state = BoomerangState.LAUNCHING
+
+    def updating(self, player: Player) -> None:
+
+        if self.state == BoomerangState.LAUNCHING:
+            self.center_x += self.dir_x * BOOMERANG_SPEED
+            self.center_y += self.dir_y * BOOMERANG_SPEED
+
+            dx = self.center_x - self.start_x
+            dy = self.center_y - self.start_y
+            distance = (dx**2 + dy**2)**0.5
+            if distance >= 8 * TILE_SIZE:
+                self.state = BoomerangState.RETURNING
+
+        elif self.state == BoomerangState.RETURNING:
+            dx = player.center_x - self.center_x
+            dy = player.center_y - self.center_y
+
+            dist = (dx**2 + dy**2)**0.5
+
+            if dist < 16:
+                self.state = BoomerangState.INACTIVE
+                return
+
+            dx /= dist
+            dy /= dist
+
+            self.center_x += dx * BOOMERANG_SPEED
+            self.center_y += dy * BOOMERANG_SPEED
+
+
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -29,6 +104,8 @@ class GameView(arcade.View):
     __spinner_infos: Final[list[tuple[arcade.TextureAnimationSprite, int, int, int, int]]]
     score: int
     holes: Final[arcade.SpriteList[arcade.Sprite]]
+    boomerang: Final[Boomerang]
+    boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -57,6 +134,9 @@ class GameView(arcade.View):
             tuple[arcade.TextureAnimationSprite, int, int, int, int]
         ] = []
         self.holes = arcade.SpriteList(use_spatial_hash=True)
+        self.boomerang = Boomerang()
+        self.boomerangs = arcade.SpriteList(use_spatial_hash=False)
+        self.boomerangs.append(self.boomerang)
         for y in range(map.height):
             for x in range(map.width):
                 grass = arcade.Sprite(
@@ -171,6 +251,8 @@ class GameView(arcade.View):
             self.crystals.draw()
             self.spinners.draw()
             self.player_list.draw()
+            if self.boomerang.state != BoomerangState.INACTIVE:
+                self.boomerangs.draw()
             # Hit boxes (debug)
             '''self.walls.draw_hit_boxes()
             self.crystals.draw_hit_boxes()
@@ -197,6 +279,8 @@ class GameView(arcade.View):
         direction = self._direction_from_key(symbol)
         if direction is not None :
             self.player.press_direction(direction)
+        if symbol == arcade.key.D:
+            self.boomerang.launch(self.player)
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
@@ -272,14 +356,15 @@ class GameView(arcade.View):
             self._restart()
             return
 
+        self.boomerang.updating(self.player)
+        self.boomerang.update_animation()
+
        # Vérifie les collisions "trous"
         for hole in self.holes:
-            # Calculer la distance entre le joueur et le centre du trou
             dx = self.player.center_x - hole.center_x
             dy = self.player.center_y - hole.center_y
             distance = (dx ** 2 + dy ** 2) ** 0.5
 
-            # Si la distance est inférieure à 16, le joueur tombe
             if distance <= 16:
                 self._restart()
                 return
@@ -289,5 +374,14 @@ class GameView(arcade.View):
             crystal.remove_from_sprite_lists()
             arcade.play_sound(self.crystals_sound)
             self.score += 1
+
+        for spinner in arcade.check_for_collision_with_list(self.boomerang, self.spinners):
+            spinner.remove_from_sprite_lists()
+            if self.boomerang.state == BoomerangState.LAUNCHING:
+                self.boomerang.state = BoomerangState.RETURNING
+
+        if self.boomerang.state == BoomerangState.LAUNCHING:
+            for wall in arcade.check_for_collision_with_list(self.boomerang, self.walls):
+                self.boomerang.state = BoomerangState.RETURNING
 
         self._update_camera()

@@ -92,3 +92,10 @@ ANIMATION_SPINNERS : Final[arcade.TextureAnimation] = \
     )
 
 TEXTURE_HOLE: Final[arcade.Texture] = _overworld_grid[18*4 + 8]
+
+ANIMATION_BOOMERANG : Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/provided/boomerang-sheet.png",
+        8,
+        frame_duration=25,
+    )
