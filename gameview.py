@@ -7,83 +7,10 @@ from textures import *
 from sounds import *
 from map import *
 from player import *
+from boomerang import *
 
 def grid_to_pixels(i : int) ->int:
     return i * TILE_SIZE + (TILE_SIZE // 2)
-
-class BoomerangState(Enum):
-    INACTIVE = 0
-    LAUNCHING = 1
-    RETURNING = 2
-
-class Boomerang(arcade.TextureAnimationSprite):
-
-    def __init__(self) -> None:
-        super().__init__(
-            animation=ANIMATION_BOOMERANG,
-            scale=SCALE,
-        )
-
-        self.state = BoomerangState.INACTIVE
-        self.start_x = 0
-        self.start_y = 0
-        self.dir_x = 0
-        self.dir_y = 0
-
-    def launch(self, player: Player) -> None:
-        if self.state != BoomerangState.INACTIVE:
-            return
-
-        self.center_x = player.center_x
-        self.center_y = player.center_y
-
-        self.start_x = self.center_x
-        self.start_y = self.center_y
-
-        match player.direction:
-            case Direction.EAST:
-                dx, dy = 1, 0
-            case Direction.WEST:
-                dx, dy = -1, 0
-            case Direction.NORTH:
-                dx, dy = 0, 1
-            case Direction.SOUTH:
-                dx, dy = 0, -1
-
-        self.dir_x = dx
-        self.dir_y = dy
-
-        self.state = BoomerangState.LAUNCHING
-
-    def updating(self, player: Player) -> None:
-
-        if self.state == BoomerangState.LAUNCHING:
-            self.center_x += self.dir_x * BOOMERANG_SPEED
-            self.center_y += self.dir_y * BOOMERANG_SPEED
-
-            dx = self.center_x - self.start_x
-            dy = self.center_y - self.start_y
-            distance = (dx**2 + dy**2)**0.5
-            if distance >= 8 * TILE_SIZE:
-                self.state = BoomerangState.RETURNING
-
-        elif self.state == BoomerangState.RETURNING:
-            dx = player.center_x - self.center_x
-            dy = player.center_y - self.center_y
-
-            dist = (dx**2 + dy**2)**0.5
-
-            if dist < 16:
-                self.state = BoomerangState.INACTIVE
-                return
-
-            dx /= dist
-            dy /= dist
-
-            self.center_x += dx * BOOMERANG_SPEED
-            self.center_y += dy * BOOMERANG_SPEED
-
-
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -269,7 +196,7 @@ class GameView(arcade.View):
                 16,
             )
             score_text.draw()
-            self.player_list.draw_hit_boxes()
+            """ self.player_list.draw_hit_boxes()"""
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
