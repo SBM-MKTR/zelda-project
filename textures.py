@@ -99,3 +99,10 @@ ANIMATION_BOOMERANG : Final[arcade.TextureAnimation] = \
         8,
         frame_duration=25,
     )
+
+ANIMATION_BAT : Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Enemies_Sprites/Pinkbat_Sprites"
+        "/pinkbat_idle_left_anim_strip_5.png",
+        5,
+    )

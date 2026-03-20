@@ -1,6 +1,9 @@
+import select
 from typing import Final
 from enum import Enum
 import arcade
+import random
+import math
 
 from constants import *
 from textures import *
@@ -33,6 +36,8 @@ class GameView(arcade.View):
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
     boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
+    bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
+    __bat_infos: Final[list[tuple[arcade.TextureAnimationSprite, BatBounds]]]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -64,6 +69,10 @@ class GameView(arcade.View):
         self.boomerang = Boomerang()
         self.boomerangs = arcade.SpriteList(use_spatial_hash=False)
         self.boomerangs.append(self.boomerang)
+        self.bats = arcade.SpriteList(use_spatial_hash=True)
+        self.__bat_infos: list[
+            tuple[arcade.TextureAnimationSprite, BatBounds]
+        ] = []
         for y in range(map.height):
             for x in range(map.width):
                 grass = arcade.Sprite(
@@ -130,6 +139,25 @@ class GameView(arcade.View):
                         center_y=grid_to_pixels(y),
                     )
                     self.holes.append(hole)
+                elif cell == GridCell.BAT:
+                    bat = arcade.TextureAnimationSprite(
+                        animation=ANIMATION_BAT,
+                        scale=SCALE,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y),
+                    )
+                    self.bats.append(bat)
+                    batbounds = bat_bounds(map, x, y, 70)
+                    self.__bat_infos.append(
+                        (
+                            bat,
+                            batbounds,
+                        )
+                    )
+                    speed = BAT_MOVEMENT_SPEED
+                    angle = random.uniform(0, 2 * math.pi)
+                    bat.change_x = math.cos(angle) * speed
+                    bat.change_y = math.sin(angle) * speed
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
@@ -138,6 +166,7 @@ class GameView(arcade.View):
         self.camera_margin_y = 30
         self.crystals_sound = CRYSTALS_SOUND
         self.score = 0
+        self.frame_count = 0
 
     def _restart(self) -> None:
         self.window.show_view(GameView(self.__map))
@@ -180,12 +209,14 @@ class GameView(arcade.View):
             self.player_list.draw()
             if self.boomerang.state != BoomerangState.INACTIVE:
                 self.boomerangs.draw()
+            self.bats.draw()
             # Hit boxes (debug)
             '''self.walls.draw_hit_boxes()
             self.crystals.draw_hit_boxes()
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
-            self.holes.draw_hit_boxes()'''
+            self.holes.draw_hit_boxes()
+            self.bats.draw_hit_boxes()'''
 
         with self.camera_ui.activate():
             score_text = arcade.Text(
@@ -237,28 +268,49 @@ class GameView(arcade.View):
                 spinner.center_y = min_y_pixels
                 spinner.change_y = SPINNER_MOVEMENT_SPEED
 
+    def _update_bats(self) -> None:
+        self.frame_count += 1
+
+        for bat, bounds in self.__bat_infos:
+            if self.frame_count % 50 == 0:
+                angle = math.atan2(bat.change_y, bat.change_x)
+
+                new_angle = random.triangular(
+                    angle - math.pi,
+                    angle + math.pi,
+                    angle,
+                )
+
+                bat.change_x = math.cos(new_angle) * BAT_MOVEMENT_SPEED
+                bat.change_y = math.sin(new_angle) * BAT_MOVEMENT_SPEED
+
+            bat.center_x += bat.change_x
+            bat.center_y += bat.change_y
+
+            if bat.center_x < bounds.center_x - bounds.rayon or bat.center_x > bounds.center_x + bounds.rayon:
+                bat.change_x *= -1
+            if bat.center_y < bounds.center_y - bounds.rayon or bat.center_y > bounds.center_y + bounds.rayon:
+                bat.change_y *= -1
+
+
     def _update_camera(self) -> None:
         screen_w = self.window.width
         screen_h = self.window.height
         cam_x, cam_y = self.camera.position
 
-        # Marges (zone où le joueur peut bouger sans déplacer la caméra)
         margin_x = self.camera_margin_x
         margin_y = self.camera_margin_y
 
-        # Déplacer horizontalement
         if self.player.center_x < cam_x - margin_x:
             cam_x = self.player.center_x + margin_x
         elif self.player.center_x > cam_x + margin_x:
             cam_x = self.player.center_x - margin_x
 
-        # Déplacer verticalement
         if self.player.center_y < cam_y - margin_y:
             cam_y = self.player.center_y + margin_y
         elif self.player.center_y > cam_y + margin_y:
             cam_y = self.player.center_y - margin_y
 
-        # Limiter la caméra pour ne jamais montrer l’extérieur du monde
         half_w = screen_w / 2
         half_h = screen_h / 2
         cam_x = max(half_w, min(cam_x, self.world_width - half_w))
@@ -274,17 +326,23 @@ class GameView(arcade.View):
         """
         self.physics_engine.update()
         self._update_spinners()
+        self._update_bats()
 
         self.player.update_animation()
         self.crystals.update_animation()
         self.spinners.update_animation()
+        self.bats.update_animation()
+
+        self.boomerang.updating(self.player)
+        self.boomerang.update_animation()
 
         if arcade.check_for_collision_with_list(self.player, self.spinners):
             self._restart()
             return
 
-        self.boomerang.updating(self.player)
-        self.boomerang.update_animation()
+        if arcade.check_for_collision_with_list(self.player, self.bats):
+            self._restart()
+            return
 
        # Vérifie les collisions "trous"
         for hole in self.holes:
@@ -304,6 +362,10 @@ class GameView(arcade.View):
 
         for spinner in arcade.check_for_collision_with_list(self.boomerang, self.spinners):
             spinner.remove_from_sprite_lists()
+            if self.boomerang.state == BoomerangState.LAUNCHING:
+                self.boomerang.state = BoomerangState.RETURNING
+        for bat in arcade.check_for_collision_with_list(self.boomerang, self.bats):
+            bat.remove_from_sprite_lists()
             if self.boomerang.state == BoomerangState.LAUNCHING:
                 self.boomerang.state = BoomerangState.RETURNING
 

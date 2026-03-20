@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Final
 from dataclasses import dataclass
+from constants import *
 
 
 class InvalidMapFileException(Exception):
@@ -15,6 +16,7 @@ class GridCell(Enum):
     SPINNER_HORIZONTAL = "spinner_horizontal"
     SPINNER_VERTICAL = "spinner_vertical"
     HOLE = "hole"
+    BAT = "bat"
 
 @dataclass(frozen=True)
 class SpinnerBounds:
@@ -22,6 +24,12 @@ class SpinnerBounds:
     max_x: int
     min_y: int
     max_y: int
+
+@dataclass(frozen=True)
+class BatBounds:
+    center_x: float
+    center_y: float
+    rayon: float
 
 
 class Map:
@@ -221,6 +229,8 @@ class Map:
                 return GridCell.SPINNER_VERTICAL
             case "O":
                 return GridCell.HOLE
+            case "v":
+                return GridCell.BAT
             case _:
                 raise InvalidMapFileException(
                     f"invalid map character: {char!r}"
@@ -262,3 +272,16 @@ def spinner_bounds(game_map: Map, x: int, y: int) -> SpinnerBounds:
         )
 
     raise ValueError(f"cell ({x}, {y}) is not a spinner")
+
+def bat_bounds(game_map: Map, x: int, y: int, rayon: float) -> BatBounds:
+    cell = game_map.get(x, y)
+    if cell != GridCell.BAT:
+        raise ValueError(f"cell ({x}, {y}) is not a bat")
+
+    center_x = x * TILE_SIZE + TILE_SIZE // 2
+    center_y = y * TILE_SIZE + TILE_SIZE // 2
+    return BatBounds(
+        center_x = center_x,
+        center_y = center_y,
+        rayon = rayon,
+    )
