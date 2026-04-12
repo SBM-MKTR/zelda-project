@@ -169,6 +169,7 @@ class GameView(arcade.View):
         self.frame_count = 0
 
     def _restart(self) -> None:
+        """Réinitialise le jeu en créant une nouvelle instance de GameView"""
         self.window.show_view(GameView(self.__map))
 
     @staticmethod
@@ -198,7 +199,11 @@ class GameView(arcade.View):
 
 
     def on_draw(self) -> None:
-        """Render the screen."""
+        """Draw all game elements.
+        Renders two layers using separate cameras:
+        - World camera: ground, holes, walls, crystals, spinners, player, boomerang and bats
+        - UI camera: score display (fixed to screen, independent of world movement)
+        """
         self.clear() # always start with self.clear()
         with self.camera.activate():
             self.grounds.draw()
@@ -248,6 +253,7 @@ class GameView(arcade.View):
 
 
     def _update_spinners(self) -> None:
+        """Update spinners' movement"""
         for spinner, min_x_pixels, max_x_pixels, min_y_pixels, max_y_pixels in self.__spinner_infos:
             spinner.center_x += spinner.change_x
             spinner.center_y += spinner.change_y
@@ -269,6 +275,7 @@ class GameView(arcade.View):
                 spinner.change_y = SPINNER_MOVEMENT_SPEED
 
     def _update_bats(self) -> None:
+        """Update bats' movement"""
         self.frame_count += 1
 
         for bat, bounds in self.__bat_infos:
@@ -294,6 +301,9 @@ class GameView(arcade.View):
 
 
     def _update_camera(self) -> None:
+        """Update the camera view, centered on the character but with a small margin
+        for him to move freely before the camera moves. The camera also doesn't show
+        the outside of the world, it stops at borders"""
         screen_w = self.window.width
         screen_h = self.window.height
         cam_x, cam_y = self.camera.position
