@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Final
 from dataclasses import dataclass
 from constants import *
+import yaml
 
 
 class InvalidMapFileException(Exception):
@@ -17,6 +18,8 @@ class GridCell(Enum):
     SPINNER_VERTICAL = "spinner_vertical"
     HOLE = "hole"
     BAT = "bat"
+    SWITCH = "switch"
+    GATE = "gate"
 
 @dataclass(frozen=True)
 class SpinnerBounds:
@@ -31,6 +34,19 @@ class BatBounds:
     center_y: float
     rayon: float
 
+@dataclass(frozen=True)
+class SwitchConfig:
+    id: str
+    x: int
+    y: int
+    state: bool
+
+@dataclass(frozen=True)
+class GateConfig:
+    x: int
+    y: int
+    open_if: dict
+
 
 class Map:
     __width: Final[int]
@@ -38,8 +54,10 @@ class Map:
     __player_start_x: Final[int]
     __player_start_y: Final[int]
     __grid: Final[tuple[tuple[GridCell, ...], ...]]
+    __switch_configs: Final[list[SwitchConfig]]
+    __gate_configs: Final[list[GateConfig]]
 
-    def __init__(self, width: int, height: int, player_start_x: int, player_start_y: int, grid: list[list[GridCell]] | tuple[tuple[GridCell, ...], ...] ) -> None:
+    def __init__(self, width: int, height: int, player_start_x: int, player_start_y: int, grid: list[list[GridCell]] | tuple[tuple[GridCell, ...], ...], switch_configs: list[SwitchConfig], gate_configs: list[GateConfig]) -> None:
         if width <= 0 or height <= 0:
             raise ValueError("width and height must be > 0")
 
@@ -54,6 +72,9 @@ class Map:
         self.__player_start_x = player_start_x
         self.__player_start_y = player_start_y
         self.__grid = tuple(tuple(row) for row in grid)
+        self.__switch_configs = switch_configs
+        self.__gate_configs = gate_configs
+
 
     @property
     def width(self) -> int:
@@ -71,6 +92,14 @@ class Map:
     def player_start_y(self) -> int:
             return self.__player_start_y
 
+    @property
+    def switch_configs(self) -> list[SwitchConfig]:
+        return self.__switch_configs #est ce qu'on met list(self.__switch_configs) ?
+
+    @property
+    def gate_configs(self) -> list[GateConfig]:
+        return self.__gate_configs #idem
+
     def get(self, x : int, y :int) -> GridCell:
         if not(0 <= x < self.__width and 0 <= y < self.__height):
             raise ValueError(f" cell ({x},{y}) is out of bound")
@@ -84,7 +113,7 @@ class Map:
     def from_string(cls, text: str) -> "Map":
         lines = text.splitlines()
 
-        width, height, map_start_index = cls._parse_header(lines)
+        width, height, switches_data, gates_data, map_start_index = cls._parse_header(lines)
         raw_map_rows = cls._parse_map_rows(lines, map_start_index, height)
         player_start_x, player_start_y, grid = cls._build_grid(
             raw_map_rows, width, height
@@ -96,11 +125,55 @@ class Map:
             player_start_x=player_start_x,
             player_start_y=player_start_y,
             grid=grid,
+            switch_configs=parse_switches(switches_data),
+            gate_configs=parse_gates(gates_data),
         )
 
-    @staticmethod
-    def _parse_header(lines: list[str]) -> tuple[int, int, int]:
+    @staticmethod #est ce que on gère les clefs dupliquées comme la previous version cidessous ?
+    def _parse_header(lines: list[str]) -> tuple[int, int, list, list, int]:
+
         if not lines:
+            raise InvalidMapFileException("empty map file")
+
+        try:
+            separator_index = lines.index("---")
+        except ValueError:
+            raise InvalidMapFileException("missing configuration terminator '---'")
+
+        yaml_text = "\n".join(lines[:separator_index])
+        try:
+            config = yaml.safe_load(yaml_text)
+        except yaml.YAMLError as e:
+            raise InvalidMapFileException(f"invalid YAML in header: {e}")
+
+        if not isinstance(config, dict):
+            raise InvalidMapFileException("configuration must be a YAML mapping")
+
+        for key in ("width", "height"):
+            if key not in config:
+                raise InvalidMapFileException(f"missing configuration key: {key!r}")
+            if not isinstance(config[key], int) or config[key] <= 0:
+                raise InvalidMapFileException(f"{key} must be a strictly positive integer")
+
+        width = config["width"]
+        height = config["height"]
+
+        switches: list = config.get("switches", [])
+        gates: list = config.get("gates", [])
+
+        if switches is None:
+            switches = []
+        if gates is None:
+            gates = []
+
+        if not isinstance(switches, list):
+            raise InvalidMapFileException("'switches' must be a list")
+        if not isinstance(gates, list):
+            raise InvalidMapFileException("'gates' must be a list")
+
+        return width, height, switches, gates, separator_index + 1
+
+        """if not lines:
             raise InvalidMapFileException("empty map file")
 
         config: dict[str, str] = {}
@@ -131,7 +204,7 @@ class Map:
         width = Map._parse_positive_int(config, "width")
         height = Map._parse_positive_int(config, "height")
 
-        return width, height, index + 1
+        return width, height, index + 1"""
 
     @staticmethod
     def _parse_positive_int(config: dict[str, str], key: str) -> int:
@@ -231,6 +304,10 @@ class Map:
                 return GridCell.HOLE
             case "v":
                 return GridCell.BAT
+            case "^":
+                return GridCell.SWITCH
+            case "|":
+                return GridCell.GATE
             case _:
                 raise InvalidMapFileException(
                     f"invalid map character: {char!r}"
@@ -285,3 +362,67 @@ def bat_bounds(game_map: Map, x: int, y: int, rayon: float) -> BatBounds:
         center_y = center_y,
         rayon = rayon,
     )
+
+def parse_switches(data: list) -> list[SwitchConfig]:
+    result = []
+    for item in data:
+        if not isinstance(item, dict):
+            raise InvalidMapFileException("each switch must be a mapping")
+        for key in ("id", "x", "y"):
+            if key not in item:
+                raise InvalidMapFileException(f"switch missing key: {key!r}")
+        state_try = item.get("state", False)
+        if not isinstance (state_try, bool):
+            raise InvalidMapFileException(f"switch state must be 'on' or 'off', got {state_try!r}")
+        result.append(SwitchConfig(
+            id=item["id"],
+            x=item["x"],
+            y=item["y"],
+            state=state_try,
+        ))
+    return result
+
+def parse_gates(data: list) -> list[GateConfig]:
+    result = []
+    for item in data:
+        if not isinstance(item, dict):
+            raise InvalidMapFileException("each gate must be a mapping")
+        for key in ("x", "y", "open_if"):
+            if key not in item:
+                raise InvalidMapFileException(f"gate missing key: {key!r}")
+        result.append(GateConfig(
+            x=item["x"],
+            y=item["y"],
+            open_if=item["open_if"],
+        ))
+    return result
+
+def evaluate_formula(formula: dict, switch_states: dict[str, bool]) -> bool:
+    if not isinstance(formula, dict) or len(formula) != 1:
+        raise InvalidMapFileException("a formula must be a dict with exactly one key")
+
+    key, value = next(iter(formula.items()))
+    """for k, v in formula.items():
+           key = k
+           value = v
+           break"""
+
+    match key:
+        case "switch_is_on":
+            if value not in switch_states:
+                raise InvalidMapFileException(f"unknown switch id: {value!r}")
+            return switch_states[value]
+        case "not":
+            if not isinstance(value, list) or len(value) != 1:
+                raise InvalidMapFileException("'not' must have exactly one element")
+            return not evaluate_formula(value[0], switch_states)
+        case "and":
+            if not isinstance(value, list) or len(value) != 2:
+                raise InvalidMapFileException("'and' must have exactly two elements")
+            return evaluate_formula(value[0], switch_states) and evaluate_formula(value[1], switch_states)
+        case "or":
+            if not isinstance(value, list) or len(value) != 2:
+                raise InvalidMapFileException("'or' must have exactly two elements")
+            return evaluate_formula(value[0], switch_states) or evaluate_formula(value[1], switch_states)
+        case _:
+            raise InvalidMapFileException(f"unknown formula key: {key!r}")
