@@ -18,12 +18,9 @@ class GridCell(Enum):
     SPINNER_VERTICAL = "spinner_vertical"
     HOLE = "hole"
     BAT = "bat"
-<<<<<<< HEAD
     BLOB = "blob"
-=======
     SWITCH = "switch"
     GATE = "gate"
->>>>>>> 66eadd4476ff9cf7810ef4a35c5110920f9e2e95
 
 @dataclass(frozen=True)
 class SpinnerBounds:
@@ -308,15 +305,12 @@ class Map:
                 return GridCell.HOLE
             case "v":
                 return GridCell.BAT
-<<<<<<< HEAD
             case "b":
                 return GridCell.BLOB
-=======
             case "^":
                 return GridCell.SWITCH
             case "|":
                 return GridCell.GATE
->>>>>>> 66eadd4476ff9cf7810ef4a35c5110920f9e2e95
             case _:
                 raise InvalidMapFileException(
                     f"invalid map character: {char!r}"
