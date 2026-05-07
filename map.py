@@ -17,6 +17,7 @@ class GridCell(Enum):
     SPINNER_VERTICAL = "spinner_vertical"
     HOLE = "hole"
     BAT = "bat"
+    BLOB = "blob"
 
 @dataclass(frozen=True)
 class SpinnerBounds:
@@ -231,6 +232,8 @@ class Map:
                 return GridCell.HOLE
             case "v":
                 return GridCell.BAT
+            case "b":
+                return GridCell.BLOB
             case _:
                 raise InvalidMapFileException(
                     f"invalid map character: {char!r}"
