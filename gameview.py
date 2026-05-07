@@ -1,3 +1,4 @@
+from arcade import Vec2
 import select
 from typing import Final
 from enum import Enum
@@ -38,6 +39,10 @@ class GameView(arcade.View):
     boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     __bat_infos: Final[list[tuple[arcade.TextureAnimationSprite, BatBounds]]]
+    switches: Final[arcade.SpriteList[arcade.Sprite]]
+    gates: Final[arcade.SpriteList[arcade.Sprite]]
+    __gate_infos: Final[list[tuple[arcade.Sprite, GateConfig]]]
+    __switch_infos: Final[list[tuple[arcade.Sprite, str]]]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -73,6 +78,10 @@ class GameView(arcade.View):
         self.__bat_infos: list[
             tuple[arcade.TextureAnimationSprite, BatBounds]
         ] = []
+        self.switches = arcade.SpriteList(use_spatial_hash=True)
+        self.gates = arcade.SpriteList(use_spatial_hash=True)
+        self.__switch_infos: list[tuple[arcade.Sprite, str]] = []
+        self.__gate_infos: list[tuple[arcade.Sprite, GateConfig]] = []
         for y in range(map.height):
             for x in range(map.width):
                 grass = arcade.Sprite(
@@ -158,6 +167,27 @@ class GameView(arcade.View):
                     angle = random.uniform(0, 2 * math.pi)
                     bat.change_x = math.cos(angle) * speed
                     bat.change_y = math.sin(angle) * speed
+                elif cell == GridCell.SWITCH:
+                    switch_config = next(s for s in map.switch_configs if s.x == x and s.y == y)
+                    texture = TEXTURE_SWITCH_ON if switch_config.state else TEXTURE_SWITCH_OFF
+                    switch = arcade.Sprite(
+                        texture,
+                        scale=0.25,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y),
+                    )
+                    self.switches.append(switch)
+                    self.__switch_infos.append((switch, switch_config.id))
+                elif cell == GridCell.GATE:
+                    gate_config = next(g for g in map.gate_configs if g.x == x and g.y == y)
+                    gate = arcade.Sprite(
+                        TEXTURE_GATE_CLOSED,
+                        scale=SCALE,
+                        center_x=grid_to_pixels(x),
+                        center_y=grid_to_pixels(y)
+                    )
+                    self.walls.append(gate)
+                    self.__gate_infos.append((gate, gate_config))
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
@@ -211,6 +241,8 @@ class GameView(arcade.View):
             self.walls.draw()
             self.crystals.draw()
             self.spinners.draw()
+            self.switches.draw()
+            self.gates.draw()
             self.player_list.draw()
             if self.boomerang.state != BoomerangState.INACTIVE:
                 self.boomerangs.draw()
@@ -221,7 +253,9 @@ class GameView(arcade.View):
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
             self.holes.draw_hit_boxes()
-            self.bats.draw_hit_boxes()'''
+            self.bats.draw_hit_boxes()
+            self.switches.draw_hit_boxes()
+            self.gates.draw_hit_boxes'''
 
         with self.camera_ui.activate():
             score_text = arcade.Text(
@@ -299,6 +333,20 @@ class GameView(arcade.View):
             if bat.center_y < bounds.center_y - bounds.rayon or bat.center_y > bounds.center_y + bounds.rayon:
                 bat.change_y *= -1
 
+    def _update_gates(self) -> None:
+        switch_states = {id: sprite.texture == TEXTURE_SWITCH_ON for sprite, id in self.__switch_infos}
+        for gate_sprite, gate_config in self.__gate_infos:
+            is_open = evaluate_formula(gate_config.open_if, switch_states)
+            if is_open:
+                gate_sprite.texture = TEXTURE_GATE_OPEN
+                if gate_sprite in self.walls:
+                    gate_sprite.remove_from_sprite_lists()
+                    self.gates.append(gate_sprite)
+            else:
+                gate_sprite.texture = TEXTURE_GATE_CLOSED
+                if gate_sprite not in self.walls:
+                    self.walls.append(gate_sprite)
+
 
     def _update_camera(self) -> None:
         """Update the camera view, centered on the character but with a small margin
@@ -337,6 +385,7 @@ class GameView(arcade.View):
         self.physics_engine.update()
         self._update_spinners()
         self._update_bats()
+        self._update_gates()
 
         self.player.update_animation()
         self.crystals.update_animation()
@@ -374,8 +423,17 @@ class GameView(arcade.View):
             spinner.remove_from_sprite_lists()
             if self.boomerang.state == BoomerangState.LAUNCHING:
                 self.boomerang.state = BoomerangState.RETURNING
+
         for bat in arcade.check_for_collision_with_list(self.boomerang, self.bats):
             bat.remove_from_sprite_lists()
+            if self.boomerang.state == BoomerangState.LAUNCHING:
+                self.boomerang.state = BoomerangState.RETURNING
+
+        for switch in arcade.check_for_collision_with_list(self.boomerang, self.switches):
+            if switch.texture == TEXTURE_SWITCH_OFF:
+                switch.texture = TEXTURE_SWITCH_ON
+            elif switch.texture == TEXTURE_SWITCH_ON:
+                switch.texture = TEXTURE_SWITCH_OFF
             if self.boomerang.state == BoomerangState.LAUNCHING:
                 self.boomerang.state = BoomerangState.RETURNING
 
