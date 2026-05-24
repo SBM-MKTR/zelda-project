@@ -1,13 +1,16 @@
 from typing import Final
+
 import arcade
-from constants import *
-from textures import *
-from sounds import *
-from map import *
-from map_parser import *
-from player import *
-from boomerang import *
+
+from camera_controller import CameraController
+from collision_system import CollisionSystem
+from constants import MAX_WINDOW_HEIGHT, MAX_WINDOW_WIDTH
+from gate_system import GateSystem
 from level import Level, build_level, grid_to_pixels
+from map import Map
+from player import Direction, Player
+from boomerang import Boomerang, BoomerangState
+from sounds import CRYSTALS_SOUND
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -16,6 +19,7 @@ class GameView(arcade.View):
     world_width: Final[int]
     world_height: Final[int]
     level: Final[Level]
+    gate_system: Final[GateSystem]
     player: Final[Player]
     player_list: Final[arcade.SpriteList[Player]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
@@ -33,8 +37,8 @@ class GameView(arcade.View):
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     switches: Final[arcade.SpriteList[arcade.Sprite]]
     gates: Final[arcade.SpriteList[arcade.Sprite]]
-    __gate_infos: Final[list[tuple[arcade.Sprite, GateConfig]]]
-    __switch_infos: Final[list[tuple[arcade.Sprite, str]]]
+    collision_system: Final[CollisionSystem]
+    camera_controller: Final[CameraController]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -65,21 +69,35 @@ class GameView(arcade.View):
         self.bats = self.level.bats
         self.switches = self.level.switches
         self.gates = self.level.gates
-        self.__switch_infos = self.level.switch_infos
-        self.__gate_infos = self.level.gate_infos
-        self._update_gates()
+        self.gate_system = GateSystem(
+            switch_infos=self.level.switch_infos,
+            gate_infos=self.level.gate_infos,
+            walls=self.walls,
+            gates=self.gates,
+        )
+        self.gate_system.update()
 
         self.boomerang = Boomerang()
         self.boomerangs = arcade.SpriteList(use_spatial_hash=False)
         self.boomerangs.append(self.boomerang)
-        self._update_gates()
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
         self.camera_ui = arcade.camera.Camera2D()
-        self.camera_margin_x = 40
-        self.camera_margin_y = 30
+        self.camera_controller = CameraController(
+            camera=self.camera,
+            player=self.player,
+            world_width=self.world_width,
+            world_height=self.world_height,
+        )
         self.crystals_sound = CRYSTALS_SOUND
+        self.collision_system = CollisionSystem(
+            level=self.level,
+            player=self.player,
+            boomerang=self.boomerang,
+            gate_system=self.gate_system,
+            crystals_sound=self.crystals_sound,
+        )
         self.score = 0
 
     def _restart(self) -> None:
@@ -108,9 +126,8 @@ class GameView(arcade.View):
         self.window.width = min(MAX_WINDOW_WIDTH, self.world_width)
         self.window.height = min(MAX_WINDOW_HEIGHT, self.world_height)
 
-        self.camera.position = (self.player.center_x, self.player.center_y)
-        self._update_camera()
-
+        self.camera_controller.center_on_player()
+        self.camera_controller.update(self.window.width, self.window.height)
 
     def on_draw(self) -> None:
         """Draw all game elements.
@@ -174,50 +191,7 @@ class GameView(arcade.View):
             enemy.update()
 
     def _update_gates(self) -> None:
-        switch_states = {id: sprite.texture == TEXTURE_SWITCH_ON for sprite, id in self.__switch_infos}
-        for gate_sprite, gate_config in self.__gate_infos:
-            is_open = evaluate_formula(gate_config.open_if, switch_states)
-            if is_open:
-                gate_sprite.texture = TEXTURE_GATE_OPEN
-                if gate_sprite in self.walls:
-                    gate_sprite.remove_from_sprite_lists()
-                    self.gates.append(gate_sprite)
-            else:
-                gate_sprite.texture = TEXTURE_GATE_CLOSED
-                if gate_sprite not in self.walls:
-                    if gate_sprite in self.gates:
-                        self.gates.remove(gate_sprite)
-                    self.walls.append(gate_sprite)
-
-
-    def _update_camera(self) -> None:
-        """Update the camera view, centered on the character but with a small margin
-        for him to move freely before the camera moves. The camera also doesn't show
-        the outside of the world, it stops at borders"""
-        screen_w = self.window.width
-        screen_h = self.window.height
-        cam_x, cam_y = self.camera.position
-
-        margin_x = self.camera_margin_x
-        margin_y = self.camera_margin_y
-
-        if self.player.center_x < cam_x - margin_x:
-            cam_x = self.player.center_x + margin_x
-        elif self.player.center_x > cam_x + margin_x:
-            cam_x = self.player.center_x - margin_x
-
-        if self.player.center_y < cam_y - margin_y:
-            cam_y = self.player.center_y + margin_y
-        elif self.player.center_y > cam_y + margin_y:
-            cam_y = self.player.center_y - margin_y
-
-        half_w = screen_w / 2
-        half_h = screen_h / 2
-        cam_x = max(half_w, min(cam_x, self.world_width - half_w))
-        cam_y = max(half_h, min(cam_y, self.world_height - half_h))
-
-        self.camera.position = (cam_x, cam_y)
-
+        self.gate_system.update()
 
     def on_update(self, delta_time: float) -> None:
         """Called once per frame, before drawing.
@@ -236,50 +210,12 @@ class GameView(arcade.View):
         self.boomerang.update_boomerang(self.player)
         self.boomerang.update_animation()
 
-        if arcade.check_for_collision_with_list(self.player, self.spinners):
+        collision_result = self.collision_system.update()
+
+        if collision_result.should_restart:
             self._restart()
             return
 
-        if arcade.check_for_collision_with_list(self.player, self.bats):
-            self._restart()
-            return
+        self.score += collision_result.score_delta
 
-        for hole in self.holes:
-            dx = self.player.center_x - hole.center_x
-            dy = self.player.center_y - hole.center_y
-            distance = (dx ** 2 + dy ** 2) ** 0.5
-
-            if distance <= 16:
-                self._restart()
-                return
-
-        for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
-            crystal.remove_from_sprite_lists()
-            arcade.play_sound(self.crystals_sound)
-            self.score += 1
-
-        for spinner in arcade.check_for_collision_with_list(self.boomerang, self.spinners):
-            self.level.remove_enemy_sprite(spinner)
-            spinner.remove_from_sprite_lists()
-            if self.boomerang.state == BoomerangState.LAUNCHING:
-                self.boomerang.state = BoomerangState.RETURNING
-
-        for bat in arcade.check_for_collision_with_list(self.boomerang, self.bats):
-            self.level.remove_enemy_sprite(bat)
-            bat.remove_from_sprite_lists()
-            if self.boomerang.state == BoomerangState.LAUNCHING:
-                self.boomerang.state = BoomerangState.RETURNING
-
-        for switch in arcade.check_for_collision_with_list(self.boomerang, self.switches):
-            if switch.texture == TEXTURE_SWITCH_OFF:
-                switch.texture = TEXTURE_SWITCH_ON
-            elif switch.texture == TEXTURE_SWITCH_ON:
-                switch.texture = TEXTURE_SWITCH_OFF
-            if self.boomerang.state == BoomerangState.LAUNCHING:
-                self.boomerang.state = BoomerangState.RETURNING
-
-        if self.boomerang.state == BoomerangState.LAUNCHING:
-            for wall in arcade.check_for_collision_with_list(self.boomerang, self.walls):
-                self.boomerang.state = BoomerangState.RETURNING
-
-        self._update_camera()
+        self.camera_controller.update(self.window.width, self.window.height)

@@ -2,8 +2,9 @@ from dataclasses import dataclass
 import arcade
 from constants import BAT_MOVEMENT_RADIUS, SCALE, SWITCH_SCALE, TILE_SIZE
 from enemies import BatEnemy, Enemy, SpinnerEnemy
+from gate_system import GateInfo, SwitchInfo
 from map import Map, bat_bounds, spinner_bounds
-from map_types import GateConfig, GridCell
+from map_types import GridCell
 from textures import (
     ANIMATION_BAT,
     ANIMATION_CRYSTAL,
@@ -15,9 +16,6 @@ from textures import (
     TEXTURE_SWITCH_OFF,
     TEXTURE_SWITCH_ON,
 )
-
-SwitchInfo = tuple[arcade.Sprite, str]
-GateInfo = tuple[arcade.Sprite, GateConfig]
 
 
 @dataclass
