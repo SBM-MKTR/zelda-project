@@ -111,5 +111,5 @@ ANIMATION_BAT : Final[arcade.TextureAnimation] = \
 TEXTURE_SWITCH_OFF: Final[arcade.Texture] = arcade.load_texture(":resources:/images/tiles/leverLeft.png")
 TEXTURE_SWITCH_ON: Final[arcade.Texture] = arcade.load_texture(":resources:/images/tiles/leverRight.png")
 
-TEXTURE_GATE_OPEN: Final[arcade.Texture] = _portal_grid[13*8 + 4]
-TEXTURE_GATE_CLOSED: Final[arcade.Texture] = _portal_grid[13*8 + 7]
+TEXTURE_GATE_OPEN: Final[arcade.Texture] = _portal_grid[13*4 + 8]
+TEXTURE_GATE_CLOSED: Final[arcade.Texture] = _portal_grid[13*7 + 8]
