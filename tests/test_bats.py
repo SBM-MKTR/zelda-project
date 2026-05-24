@@ -27,7 +27,7 @@ xP     x
     assert bat_bounds(game_map, 3, 1, 70) == BatBounds(
         center_x=3 * TILE_SIZE + TILE_SIZE // 2,
         center_y=1 * TILE_SIZE + TILE_SIZE // 2,
-        rayon=70,
+        radius=70,
     )
 
 

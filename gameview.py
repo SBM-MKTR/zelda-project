@@ -1,22 +1,13 @@
-from arcade import Vec2
-import select
 from typing import Final
-from enum import Enum
 import arcade
-import random
-import math
-
 from constants import *
 from textures import *
 from sounds import *
 from map import *
-from map_types import *
 from map_parser import *
 from player import *
 from boomerang import *
-
-def grid_to_pixels(i : int) ->int:
-    return i * TILE_SIZE + (TILE_SIZE // 2)
+from level import Level, build_level, grid_to_pixels
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -24,6 +15,7 @@ class GameView(arcade.View):
     __map: Final[Map]
     world_width: Final[int]
     world_height: Final[int]
+    level: Final[Level]
     player: Final[Player]
     player_list: Final[arcade.SpriteList[Player]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
@@ -34,13 +26,11 @@ class GameView(arcade.View):
     camera_ui: Final[arcade.camera.Camera2D]
     crystals_sound: Final[arcade.Sound]
     spinners: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
-    __spinner_infos: Final[list[tuple[arcade.TextureAnimationSprite, int, int, int, int]]]
     score: int
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
     boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
-    __bat_infos: Final[list[tuple[arcade.TextureAnimationSprite, BatBounds]]]
     switches: Final[arcade.SpriteList[arcade.Sprite]]
     gates: Final[arcade.SpriteList[arcade.Sprite]]
     __gate_infos: Final[list[tuple[arcade.Sprite, GateConfig]]]
@@ -55,141 +45,34 @@ class GameView(arcade.View):
         # Choose a nice comfy background color
         self.background_color = arcade.csscolor.CORNFLOWER_BLUE
 
-        # Setup our game
-        self.world_width = map.width * TILE_SIZE
-        self.world_height = map.height * TILE_SIZE
+        self.level = build_level(map)
+        self.world_width = self.level.world_width
+        self.world_height = self.level.world_height
+
         self.player = Player(
-                             center_x=grid_to_pixels(map.player_start_x),
-                             center_y=grid_to_pixels(map.player_start_y)
-                             )
+            center_x=grid_to_pixels(map.player_start_x),
+            center_y=grid_to_pixels(map.player_start_y),
+        )
 
         self.player_list = arcade.SpriteList()
         self.player_list.append(self.player)
-        self.grounds = arcade.SpriteList(use_spatial_hash=True)
-        self.walls = arcade.SpriteList(use_spatial_hash=True)
-        self.crystals = arcade.SpriteList(use_spatial_hash=True)
-        self.spinners = arcade.SpriteList(use_spatial_hash=False)
-        self.__spinner_infos: list[
-            tuple[arcade.TextureAnimationSprite, int, int, int, int]
-        ] = []
-        self.holes = arcade.SpriteList(use_spatial_hash=True)
+
+        self.grounds = self.level.grounds
+        self.walls = self.level.walls
+        self.crystals = self.level.crystals
+        self.spinners = self.level.spinners
+        self.holes = self.level.holes
+        self.bats = self.level.bats
+        self.switches = self.level.switches
+        self.gates = self.level.gates
+        self.__switch_infos = self.level.switch_infos
+        self.__gate_infos = self.level.gate_infos
+        self._update_gates()
+
         self.boomerang = Boomerang()
         self.boomerangs = arcade.SpriteList(use_spatial_hash=False)
         self.boomerangs.append(self.boomerang)
-        self.bats = arcade.SpriteList(use_spatial_hash=True)
-        self.__bat_infos: list[
-            tuple[arcade.TextureAnimationSprite, BatBounds]
-        ] = []
-        self.switches = arcade.SpriteList(use_spatial_hash=True)
-        self.gates = arcade.SpriteList(use_spatial_hash=True)
-        self.__switch_infos: list[tuple[arcade.Sprite, str]] = []
-        self.__gate_infos: list[tuple[arcade.Sprite, GateConfig]] = []
-        for y in range(map.height):
-            for x in range(map.width):
-                grass = arcade.Sprite(
-                    TEXTURE_GRASS,
-                    scale=SCALE,
-                    center_x=grid_to_pixels(x),
-                    center_y=grid_to_pixels(y),
-                )
-                self.grounds.append(grass)
-
-                cell = map.get(x, y)
-                if cell == GridCell.BUSH:
-                    bush = arcade.Sprite(
-                        TEXTURE_BUSH,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-                    self.walls.append(bush)
-                elif cell == GridCell.CRYSTAL:
-                    crystal = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_CRYSTAL,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-                    self.crystals.append(crystal)
-                elif cell in (GridCell.SPINNER_HORIZONTAL, GridCell.SPINNER_VERTICAL):
-                    spinner = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_SPINNERS,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-
-                    bounds = spinner_bounds(map, x, y)
-                    min_x_pixels = grid_to_pixels(bounds.min_x)
-                    max_x_pixels = grid_to_pixels(bounds.max_x)
-                    min_y_pixels = grid_to_pixels(bounds.min_y)
-                    max_y_pixels = grid_to_pixels(bounds.max_y)
-
-                    if cell == GridCell.SPINNER_HORIZONTAL:
-                        if min_x_pixels != max_x_pixels:
-                            spinner.change_x = SPINNER_MOVEMENT_SPEED
-                    else:
-                        if min_y_pixels != max_y_pixels:
-                            spinner.change_y = SPINNER_MOVEMENT_SPEED
-
-                    self.spinners.append(spinner)
-                    self.__spinner_infos.append(
-                        (
-                            spinner,
-                            min_x_pixels,
-                            max_x_pixels,
-                            min_y_pixels,
-                            max_y_pixels,
-                        )
-                    )
-                elif cell == GridCell.HOLE:
-                    hole = arcade.Sprite(
-                        TEXTURE_HOLE,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-                    self.holes.append(hole)
-                elif cell == GridCell.BAT:
-                    bat = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_BAT,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-                    self.bats.append(bat)
-                    batbounds = bat_bounds(map, x, y, 70)
-                    self.__bat_infos.append(
-                        (
-                            bat,
-                            batbounds,
-                        )
-                    )
-                    speed = BAT_MOVEMENT_SPEED
-                    angle = random.uniform(0, 2 * math.pi)
-                    bat.change_x = math.cos(angle) * speed
-                    bat.change_y = math.sin(angle) * speed
-                elif cell == GridCell.SWITCH:
-                    switch_config = next(s for s in map.switch_configs if s.x == x and s.y == y)
-                    texture = TEXTURE_SWITCH_ON if switch_config.state else TEXTURE_SWITCH_OFF
-                    switch = arcade.Sprite(
-                        texture,
-                        scale=0.25,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y),
-                    )
-                    self.switches.append(switch)
-                    self.__switch_infos.append((switch, switch_config.id))
-                elif cell == GridCell.GATE:
-                    gate_config = next(g for g in map.gate_configs if g.x == x and g.y == y)
-                    gate = arcade.Sprite(
-                        TEXTURE_GATE_CLOSED,
-                        scale=SCALE,
-                        center_x=grid_to_pixels(x),
-                        center_y=grid_to_pixels(y)
-                    )
-                    self.walls.append(gate)
-                    self.__gate_infos.append((gate, gate_config))
+        self._update_gates()
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
@@ -198,7 +81,6 @@ class GameView(arcade.View):
         self.camera_margin_y = 30
         self.crystals_sound = CRYSTALS_SOUND
         self.score = 0
-        self.frame_count = 0
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
@@ -287,53 +169,9 @@ class GameView(arcade.View):
         if direction is not None:
             self.player.release_direction(direction)
 
-
-    def _update_spinners(self) -> None:
-        """Update spinners' movement"""
-        for spinner, min_x_pixels, max_x_pixels, min_y_pixels, max_y_pixels in self.__spinner_infos:
-            spinner.center_x += spinner.change_x
-            spinner.center_y += spinner.change_y
-
-            if spinner.change_x > 0 and spinner.center_x >= max_x_pixels:
-                spinner.center_x = max_x_pixels
-                spinner.change_x = -SPINNER_MOVEMENT_SPEED
-
-            elif spinner.change_x < 0 and spinner.center_x <= min_x_pixels:
-                spinner.center_x = min_x_pixels
-                spinner.change_x = SPINNER_MOVEMENT_SPEED
-
-            elif spinner.change_y > 0 and spinner.center_y >= max_y_pixels:
-                spinner.center_y = max_y_pixels
-                spinner.change_y = -SPINNER_MOVEMENT_SPEED
-
-            elif spinner.change_y < 0 and spinner.center_y <= min_y_pixels:
-                spinner.center_y = min_y_pixels
-                spinner.change_y = SPINNER_MOVEMENT_SPEED
-
-    def _update_bats(self) -> None:
-        """Update bats' movement"""
-        self.frame_count += 1
-
-        for bat, bounds in self.__bat_infos:
-            if self.frame_count % 50 == 0:
-                angle = math.atan2(bat.change_y, bat.change_x)
-
-                new_angle = random.triangular(
-                    angle - math.pi,
-                    angle + math.pi,
-                    angle,
-                )
-
-                bat.change_x = math.cos(new_angle) * BAT_MOVEMENT_SPEED
-                bat.change_y = math.sin(new_angle) * BAT_MOVEMENT_SPEED
-
-            bat.center_x += bat.change_x
-            bat.center_y += bat.change_y
-
-            if bat.center_x < bounds.center_x - bounds.radius or bat.center_x > bounds.center_x + bounds.radius:
-                bat.change_x *= -1
-            if bat.center_y < bounds.center_y - bounds.radius or bat.center_y > bounds.center_y + bounds.radius:
-                bat.change_y *= -1
+    def _update_enemies(self) -> None:
+        for enemy in self.level.enemies:
+            enemy.update()
 
     def _update_gates(self) -> None:
         switch_states = {id: sprite.texture == TEXTURE_SWITCH_ON for sprite, id in self.__switch_infos}
@@ -347,6 +185,8 @@ class GameView(arcade.View):
             else:
                 gate_sprite.texture = TEXTURE_GATE_CLOSED
                 if gate_sprite not in self.walls:
+                    if gate_sprite in self.gates:
+                        self.gates.remove(gate_sprite)
                     self.walls.append(gate_sprite)
 
 
@@ -385,8 +225,7 @@ class GameView(arcade.View):
         This is where in-world time "advances", or "ticks".
         """
         self.physics_engine.update()
-        self._update_spinners()
-        self._update_bats()
+        self._update_enemies()
         self._update_gates()
 
         self.player.update_animation()
@@ -420,11 +259,13 @@ class GameView(arcade.View):
             self.score += 1
 
         for spinner in arcade.check_for_collision_with_list(self.boomerang, self.spinners):
+            self.level.remove_enemy_sprite(spinner)
             spinner.remove_from_sprite_lists()
             if self.boomerang.state == BoomerangState.LAUNCHING:
                 self.boomerang.state = BoomerangState.RETURNING
 
         for bat in arcade.check_for_collision_with_list(self.boomerang, self.bats):
+            self.level.remove_enemy_sprite(bat)
             bat.remove_from_sprite_lists()
             if self.boomerang.state == BoomerangState.LAUNCHING:
                 self.boomerang.state = BoomerangState.RETURNING
