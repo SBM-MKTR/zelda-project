@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "arcade>=3.3.3",
     "networkx>=3.6.1",
-    "pyyaml>=6.0.3",
+    "ruamel.yaml>=0.18.6",
     "types-networkx>=3.6.1.20260408",
 ]
 [tool.ruff.lint]

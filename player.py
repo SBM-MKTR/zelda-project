@@ -27,6 +27,7 @@ class Player(arcade.TextureAnimationSprite) :
             center_x=center_x,
             center_y=center_y,
         )
+        
 
         self.direction = Direction.SOUTH
         self.__right_pressed = False

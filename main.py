@@ -7,7 +7,7 @@ from constants import *
 from gameview import GameView
 from map import *
 
-DEFAULT_MAP_PATH = Path("maps") / "map1.txt"
+DEFAULT_MAP_PATH = "maps/map1.txt"
 
 def main() -> None:
     if len(sys.argv) == 1:
@@ -33,4 +33,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
- 

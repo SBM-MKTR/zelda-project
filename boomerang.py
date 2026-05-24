@@ -51,7 +51,7 @@ class Boomerang(arcade.TextureAnimationSprite):
 
         self.state = BoomerangState.LAUNCHING
 
-    def updating(self, player: Player) -> None:
+    def update_boomerang(self, player: Player) -> None:
 
         if self.state == BoomerangState.LAUNCHING:
             self.center_x += self.dir_x * BOOMERANG_SPEED
@@ -60,7 +60,7 @@ class Boomerang(arcade.TextureAnimationSprite):
             dx = self.center_x - self.start_x
             dy = self.center_y - self.start_y
             distance = (dx**2 + dy**2)**0.5
-            if distance >= 8 * TILE_SIZE:
+            if distance >= BOOMERANG_MAX_DISTANCE:
                 self.state = BoomerangState.RETURNING
 
         elif self.state == BoomerangState.RETURNING:
@@ -69,10 +69,16 @@ class Boomerang(arcade.TextureAnimationSprite):
 
             dist = (dx**2 + dy**2)**0.5
 
-            if dist < 16:
+            if dist <= BOOMERANG_SPEED:
+                #si le boomerang est assez proche pour être rattrapé au prochain déplacement, on l’arrête directement
+                # à la place de mettre un distance fixe préféfinie
                 self.state = BoomerangState.INACTIVE
+                self.center_x = player.center_x
+                self.center_y = player.center_y
                 return
 
+            #on normalise le vecteur boomerang -> player (pour l'utiliser comme vecteur directeur)
+            #comme ca le boomerang se deplace bien a la même vitesse quelque soit sa distance avec le player
             dx /= dist
             dy /= dist
 

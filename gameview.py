@@ -10,6 +10,8 @@ from constants import *
 from textures import *
 from sounds import *
 from map import *
+from map_types import *
+from map_parser import *
 from player import *
 from boomerang import *
 
@@ -328,9 +330,9 @@ class GameView(arcade.View):
             bat.center_x += bat.change_x
             bat.center_y += bat.change_y
 
-            if bat.center_x < bounds.center_x - bounds.rayon or bat.center_x > bounds.center_x + bounds.rayon:
+            if bat.center_x < bounds.center_x - bounds.radius or bat.center_x > bounds.center_x + bounds.radius:
                 bat.change_x *= -1
-            if bat.center_y < bounds.center_y - bounds.rayon or bat.center_y > bounds.center_y + bounds.rayon:
+            if bat.center_y < bounds.center_y - bounds.radius or bat.center_y > bounds.center_y + bounds.radius:
                 bat.change_y *= -1
 
     def _update_gates(self) -> None:
@@ -392,7 +394,7 @@ class GameView(arcade.View):
         self.spinners.update_animation()
         self.bats.update_animation()
 
-        self.boomerang.updating(self.player)
+        self.boomerang.update_boomerang(self.player)
         self.boomerang.update_animation()
 
         if arcade.check_for_collision_with_list(self.player, self.spinners):
@@ -403,7 +405,6 @@ class GameView(arcade.View):
             self._restart()
             return
 
-       # Vérifie les collisions "trous"
         for hole in self.holes:
             dx = self.player.center_x - hole.center_x
             dy = self.player.center_y - hole.center_y
@@ -413,7 +414,6 @@ class GameView(arcade.View):
                 self._restart()
                 return
 
-        # ramasser les cristaux en collision avec le joueur
         for crystal in arcade.check_for_collision_with_list(self.player, self.crystals):
             crystal.remove_from_sprite_lists()
             arcade.play_sound(self.crystals_sound)
