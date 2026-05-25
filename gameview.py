@@ -158,7 +158,8 @@ class GameView(arcade.View):
             self.spinners.draw()
             self.switches.draw()
             self.gates.draw()
-            self.player_list.draw()
+            if not self.weapon_system.sword_weapon.is_active():
+                self.player_list.draw()
             self.weapon_system.draw()
             self.bats.draw()
             # Hit boxes (debug)
@@ -177,19 +178,21 @@ class GameView(arcade.View):
             self.score_text.draw()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
-        """Called when the user presses a key on the keyboard."""
-        if symbol == arcade.key.ESCAPE:
-            self._restart()
-            return
-        direction = self._direction_from_key(symbol)
-        if direction is not None :
-            self.player.press_direction(direction)
-        if symbol == arcade.key.R:
-            self.weapon_system.switch_active_weapon()
-            return
+        match symbol:
+            case arcade.key.ESCAPE:
+                self._restart()
 
-        if symbol == arcade.key.D:
-            self.weapon_system.use_active_weapon(self.player)
+            case arcade.key.R:
+                self.weapon_system.switch_active_weapon()
+
+            case arcade.key.D:
+                self.weapon_system.use_active_weapon(self.player)
+
+            case _:
+                direction = self._direction_from_key(symbol)
+
+                if direction is not None and not self.weapon_system.sword_weapon.is_active():
+                    self.player.press_direction(direction)
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
@@ -209,7 +212,8 @@ class GameView(arcade.View):
 
         This is where in-world time "advances", or "ticks".
         """
-        self.physics_engine.update()
+        if not self.weapon_system.sword_weapon.is_active():
+            self.physics_engine.update()
         self._update_enemies()
         self._update_gates()
 
