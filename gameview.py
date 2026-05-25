@@ -19,6 +19,7 @@ from boomerang import Boomerang
 from weapon_system import WeaponSystem
 from sounds import CRYSTALS_SOUND
 from gameoverview import GameOverView
+from gamewinview import GameWinView
 
 from enemies import EnemyUpdateContext
 
@@ -124,7 +125,10 @@ class GameView(arcade.View):
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
-        self.window.show_view(GameOverView(self.__map, self.score))
+        if len(self.crystals) == 0:
+            self.window.show_view(GameWinView(self.__map, self.score))
+        else:
+            self.window.show_view(GameOverView(self.__map, self.score))
 
     @staticmethod
     def _direction_from_key(symbol: int) -> Direction | None:
@@ -230,6 +234,8 @@ class GameView(arcade.View):
 
         This is where in-world time "advances", or "ticks".
         """
+        on_ice: bool = bool(arcade.check_for_collision_with_list(self.player, self.ices))
+        self.player.update_physics(on_ice)
         if not self.weapon_system.sword_weapon.is_active():
             self.physics_engine.update()
         self._update_enemies()
@@ -245,9 +251,12 @@ class GameView(arcade.View):
 
         collision_result = self.collision_system.update()
 
-        if collision_result.should_restart:
+        if collision_result.should_restart :
             self._restart()
             return
+        if len(self.crystals) == 0:
+            self.score += 1
+            self._restart()
 
         if collision_result.teleport_destination is not None:
             dest_x, dest_y = collision_result.teleport_destination
