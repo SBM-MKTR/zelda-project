@@ -152,6 +152,8 @@ def _cell_from_char(char: str) -> GridCell:
             return GridCell.GATE
         case "T":
             return GridCell.TELEPORTER
+        case "g":
+            return GridCell.ICE
         case _:
             raise InvalidMapFileException(f"invalid map character: {char!r}")
 

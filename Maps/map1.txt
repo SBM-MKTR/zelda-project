@@ -38,10 +38,10 @@ teleporters:
     target_id: "t1"
 ---
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-x  *               S  T  x             x
-x         b              x    *   *    x
-x                      * x             x
-x         s        xxxxxxx            sx
+x  *            gggS  T  x             x
+x         b     ggg      x    *   *    x
+x               ggg    * x  gggggggg   x
+x         s        xxxxxxx  gggggggg  sx
 x     xxx *   xx                       x
 x                            xxx       x
 x^   |  v    xxxxxxxxxx        x       x
@@ -49,7 +49,7 @@ x       ^ *                    x   *   x
 x      S              S     *  x       x
 x  *       v    *              O       x
 x         |         b          O      Tx
-x     xx     s        xs               x
-x  P      *           x       *        x
+x     xx     s        xs       ggg     x
+x  P      *           x       *ggg     x
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ---

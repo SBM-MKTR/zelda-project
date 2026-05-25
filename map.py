@@ -20,7 +20,6 @@ from map_parser import (
     parse_teleporters,
     evaluate_formula,
     validate_formula,
-
 )
 
 
