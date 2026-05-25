@@ -4,7 +4,13 @@ import arcade
 
 from camera_controller import CameraController
 from collision_system import CollisionSystem
-from constants import MAX_WINDOW_HEIGHT, MAX_WINDOW_WIDTH
+from constants import (
+    MAX_WINDOW_HEIGHT,
+    MAX_WINDOW_WIDTH,
+    SCORE_TEXT_SIZE,
+    SCORE_TEXT_TOP_MARGIN,
+    SCORE_TEXT_X,
+)
 from gate_system import GateSystem
 from level import Level, build_level, grid_to_pixels
 from map import Map
@@ -35,7 +41,6 @@ class GameView(arcade.View):
     score_text: Final[arcade.Text]
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
-    boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     switches: Final[arcade.SpriteList[arcade.Sprite]]
     gates: Final[arcade.SpriteList[arcade.Sprite]]
@@ -79,10 +84,8 @@ class GameView(arcade.View):
             gates=self.gates,
         )
         self.gate_system.update()
-
         self.weapon_system = WeaponSystem()
-        self.boomerang = self.weapon_system.boomerang
-        self.boomerangs = self.weapon_system.boomerangs
+        self.boomerang = self.weapon_system.boomerang_weapon.boomerang
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
@@ -103,12 +106,12 @@ class GameView(arcade.View):
         )
         self.score = 0
         self.score_text = arcade.Text(
-              "Score: 0",
-              10,
-              self.window.height - 30,
-              arcade.color.WHITE,
-              16,
-          )
+            "Score: 0",
+            SCORE_TEXT_X,
+            self.window.height - SCORE_TEXT_TOP_MARGIN,
+            arcade.color.WHITE,
+            SCORE_TEXT_SIZE,
+        )
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
@@ -135,7 +138,7 @@ class GameView(arcade.View):
         # limit the size of the window.
         self.window.width = min(MAX_WINDOW_WIDTH, self.world_width)
         self.window.height = min(MAX_WINDOW_HEIGHT, self.world_height)
-        self.score_text.y = self.window.height - 30
+        self.score_text.y = self.window.height - SCORE_TEXT_TOP_MARGIN
 
         self.camera_controller.center_on_player()
         self.camera_controller.update(self.window.width, self.window.height)
@@ -169,19 +172,24 @@ class GameView(arcade.View):
             self.gates.draw_hit_boxes'''
 
         with self.camera_ui.activate():
+            self.weapon_system.draw_active_weapon_icon(self.window.height)
             self.score_text.text = f"Score: {self.score}"
             self.score_text.draw()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
         if symbol == arcade.key.ESCAPE:
-                self._restart()
-                return
+            self._restart()
+            return
         direction = self._direction_from_key(symbol)
         if direction is not None :
             self.player.press_direction(direction)
+        if symbol == arcade.key.R:
+            self.weapon_system.switch_active_weapon()
+            return
+
         if symbol == arcade.key.D:
-            self.weapon_system.launch_boomerang(self.player)
+            self.weapon_system.use_active_weapon(self.player)
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
@@ -210,7 +218,7 @@ class GameView(arcade.View):
         self.spinners.update_animation()
         self.bats.update_animation()
 
-        self.weapon_system.update(self.player)
+        self.weapon_system.update(self.player, delta_time)
 
         collision_result = self.collision_system.update()
 

@@ -77,7 +77,39 @@ ANIMATION_PLAYER_IDLE_LEFT : Final[arcade.TextureAnimation] = \
 ANIMATION_PLAYER_IDLE_RIGHT : Final[arcade.TextureAnimation] = \
     _load_animation_strip("assets/Top_Down_Adventure_Pack_v.1.0/Char_Sprites/char_idle_right_anim_strip_6.png" , 6)
 
-# animation des cristaux à ramasser
+ANIMATION_SWORD_DOWN: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Char_Sprites/char_attack48_down_anim_strip_6.png",
+        6,
+        frame_duration=50,
+        tile_size=(48, 48),
+    )
+
+ANIMATION_SWORD_UP: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Char_Sprites/char_attack48_up_anim_strip_6.png",
+        6,
+        frame_duration=50,
+        tile_size=(48, 48),
+    )
+
+ANIMATION_SWORD_LEFT: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Char_Sprites/char_attack48_left_anim_strip_6.png",
+        6,
+        frame_duration=50,
+        tile_size=(48, 48),
+    )
+
+ANIMATION_SWORD_RIGHT: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0/Char_Sprites/char_attack48_right_anim_strip_6.png",
+        6,
+        frame_duration=50,
+        tile_size=(48, 48),
+    )
+
+
 ANIMATION_CRYSTAL: Final[arcade.TextureAnimation] = \
     _load_animation_strip(
         "assets/Top_Down_Adventure_Pack_v.1.0"
