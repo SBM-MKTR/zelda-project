@@ -51,8 +51,10 @@ class CollisionSystem:
 
     def _player_touches_enemy(self) -> bool:
         return bool(
-            arcade.check_for_collision_with_list(self.player, self.level.spinners)
-            or arcade.check_for_collision_with_list(self.player, self.level.bats)
+            arcade.check_for_collision_with_list(
+                self.player,
+                self.level.enemy_sprites,
+            )
         )
 
     def _player_falls_in_hole(self) -> bool:
@@ -95,15 +97,8 @@ class CollisionSystem:
         arcade.play_sound(self.crystals_sound)
 
     def _handle_weapon_enemy_hits(self) -> None:
-        for weapon, spinner in self.weapon_system.check_enemy_collisions(
-            self.level.spinners,
-        ):
-            self._remove_enemy_hit(spinner, weapon)
-
-        for weapon, bat in self.weapon_system.check_enemy_collisions(
-            self.level.bats,
-        ):
-            self._remove_enemy_hit(bat, weapon)
+        for weapon, enemy in self.weapon_system.check_enemy_collisions(self.level.enemy_sprites):
+            self._remove_enemy_hit(enemy, weapon)
 
     def _remove_enemy_hit(
         self,

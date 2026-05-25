@@ -7,15 +7,21 @@ import arcade
 
 from constants import BAT_MOVEMENT_SPEED, SPINNER_MOVEMENT_SPEED
 from map_types import BatBounds
+from player import Player
+
+
+@dataclass(frozen=True)
+class EnemyUpdateContext:
+    player: Player
+    line_of_sight_walls: arcade.SpriteList[arcade.Sprite]
 
 
 class Enemy(ABC):
     sprite: arcade.TextureAnimationSprite
 
     @abstractmethod
-    def update(self) -> None:
+    def update(self, context: EnemyUpdateContext) -> None:
         pass
-
 
 @dataclass
 class SpinnerEnemy(Enemy):
@@ -42,7 +48,7 @@ class SpinnerEnemy(Enemy):
 
         return cls(sprite, min_x, max_x, min_y, max_y)
 
-    def update(self) -> None:
+    def update(self, context: EnemyUpdateContext) -> None:
         self.sprite.center_x += self.sprite.change_x
         self.sprite.center_y += self.sprite.change_y
 
@@ -73,7 +79,7 @@ class BatEnemy(Enemy):
     def __post_init__(self) -> None:
         self._choose_random_direction()
 
-    def update(self) -> None:
+    def update(self, context: EnemyUpdateContext) -> None:
         self.frame_count += 1
 
         if self.frame_count % 50 == 0:
