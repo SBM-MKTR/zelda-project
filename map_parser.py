@@ -7,6 +7,7 @@ from map_types import (
     GridCell,
     SwitchConfig,
     GateConfig,
+    TeleporterConfig,
     ParsedHeader,
 )
 
@@ -38,12 +39,14 @@ def parse_header(lines: list[str]) -> ParsedHeader:
     height = _require_positive_int(config, "height")
     switches = _optional_list(config, "switches")
     gates = _optional_list(config, "gates")
+    teleporters = _optional_list(config, "teleporters")
 
     return ParsedHeader(
         width=width,
         height=height,
         switches_data=switches,
         gates_data=gates,
+        teleporters_data=teleporters,
         map_start_index=separator_index + 1,
     )
 
@@ -114,6 +117,7 @@ def build_grid(
                 if player_position is not None:
                     raise InvalidMapFileException("map must contain exactly one 'P'")
                 player_position = (x, y)
+                grid[y][x] = GridCell.PLAYER_START
                 continue
 
             grid[y][x] = _cell_from_char(char)
@@ -146,6 +150,8 @@ def _cell_from_char(char: str) -> GridCell:
             return GridCell.SWITCH
         case "|":
             return GridCell.GATE
+        case "T":
+            return GridCell.TELEPORTER
         case _:
             raise InvalidMapFileException(f"invalid map character: {char!r}")
 
@@ -181,7 +187,9 @@ def parse_switches(data: list) -> tuple[SwitchConfig, ...]:
                 )
 
         if switch_id in seen_ids:
-            raise InvalidMapFileException(f"duplicate switch id: {switch_id!r}")
+            raise InvalidMapFileException(
+                f"duplicate switch id: {switch_id!r}"
+                )
         seen_ids.add(switch_id)
 
         state = _parse_switch_state(rest.get("state"))
@@ -202,9 +210,43 @@ def parse_gates(data: list) -> tuple[GateConfig, ...]:
             } if not isinstance(x, bool) and not isinstance(y, bool):
                 pass
             case _:
-                raise InvalidMapFileException(f"invalid gate entry: {item!r}")
+                raise InvalidMapFileException(
+                    f"invalid gate entry: {item!r}"
+                    )
 
         result.append(GateConfig(x=x, y=y, open_if=open_if))
+
+    return tuple(result)
+
+def parse_teleporters(data: list) -> tuple[TeleporterConfig, ...]:
+    result: list[TeleporterConfig] = []
+    seen_ids: set[str] = set()
+
+    for item in data:
+        match item:
+            case {
+                "id": str(tp_id),
+                "x": int(x),
+                "y": int(y),
+                "target_id": str(target_id),
+            } if not isinstance(x, bool) and not isinstance(y, bool):
+                pass
+            case _:
+                raise InvalidMapFileException(
+                    f"invalid teleporter entry: {item!r}"
+                )
+
+        if tp_id in seen_ids:
+            raise InvalidMapFileException(f"duplicate teleporter id: {tp_id!r}")
+        seen_ids.add(tp_id)
+
+        result.append(TeleporterConfig(id=tp_id, x=x, y=y, target_id=target_id))
+
+    for tc in result:
+        if tc.target_id not in seen_ids:
+            raise InvalidMapFileException(
+                f"teleporter {tc.id!r} references unknown target_id: {tc.target_id!r}"
+            )
 
     return tuple(result)
 

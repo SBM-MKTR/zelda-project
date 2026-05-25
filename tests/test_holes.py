@@ -2,7 +2,8 @@ import pytest
 
 import arcade
 
-from map import GridCell, Map
+from map import Map
+from map_types import GridCell
 from gameview import GameView
 
 

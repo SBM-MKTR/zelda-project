@@ -8,6 +8,7 @@ from map_types import (
     BatBounds,
     SwitchConfig,
     GateConfig,
+    TeleporterConfig,
     InvalidMapFileException,
 )
 from map_parser import (
@@ -16,6 +17,7 @@ from map_parser import (
     build_grid,
     parse_switches,
     parse_gates,
+    parse_teleporters,
     evaluate_formula,
     validate_formula,
 
@@ -30,6 +32,7 @@ class Map:
     __grid: Final[tuple[tuple[GridCell, ...], ...]]
     __switch_configs: Final[tuple[SwitchConfig, ...]]
     __gate_configs: Final[tuple[GateConfig, ...]]
+    __teleporter_configs: Final[tuple[TeleporterConfig, ...]]
 
     def __init__(
         self,
@@ -40,6 +43,7 @@ class Map:
         grid: list[list[GridCell]] | tuple[tuple[GridCell, ...], ...],
         switch_configs: tuple[SwitchConfig, ...],
         gate_configs: tuple[GateConfig, ...],
+        teleporter_configs: tuple[TeleporterConfig, ...] = (),
     ) -> None:
         if width <= 0 or height <= 0:
             raise ValueError("width and height must be > 0")
@@ -57,6 +61,7 @@ class Map:
         self.__grid = tuple(tuple(row) for row in grid)
         self.__switch_configs = switch_configs
         self.__gate_configs = gate_configs
+        self.__teleporter_configs = teleporter_configs
 
         self._validate_entity_positions()
 
@@ -108,6 +113,30 @@ class Map:
                         f"GATE cell at ({x},{y}) has no corresponding gate config"
                     )
 
+        teleporter_positions: set[tuple[int, int]] = set()
+        for tc in self.__teleporter_configs:
+            if not (0 <= tc.x < self.__width and 0 <= tc.y < self.__height):
+                raise InvalidMapFileException(
+                    f"teleporter {tc.id!r} position ({tc.x},{tc.y}) is out of bounds"
+                )
+            if self.__grid[tc.y][tc.x] != GridCell.TELEPORTER:
+                raise InvalidMapFileException(
+                    f"teleporter {tc.id!r} at ({tc.x},{tc.y}) does not point to a TELEPORTER cell"
+                )
+            pos = (tc.x, tc.y)
+            if pos in teleporter_positions:
+                raise InvalidMapFileException(
+                    f"two teleporters share the same position ({tc.x},{tc.y})"
+                )
+            teleporter_positions.add(pos)
+
+        for y in range(self.__height):
+            for x in range(self.__width):
+                if self.__grid[y][x] == GridCell.TELEPORTER and (x, y) not in teleporter_positions:
+                    raise InvalidMapFileException(
+                        f"TELEPORTER cell at ({x},{y}) has no corresponding teleporter config"
+                    )
+
     @property
     def width(self) -> int:
         return self.__width
@@ -132,6 +161,10 @@ class Map:
     def gate_configs(self) -> tuple[GateConfig, ...]:
         return self.__gate_configs
 
+    @property
+    def teleporter_configs(self) -> tuple[TeleporterConfig, ...]:
+        return self.__teleporter_configs
+
     def get(self, x: int, y: int) -> GridCell:
         if not (0 <= x < self.__width and 0 <= y < self.__height):
             raise ValueError(f"cell ({x},{y}) is out of bounds")
@@ -153,6 +186,7 @@ class Map:
 
         switch_configs = parse_switches(header.switches_data)
         gate_configs = parse_gates(header.gates_data)
+        teleporter_configs = parse_teleporters(header.teleporters_data)
 
         known_ids = {sc.id for sc in switch_configs}
         for gc in gate_configs:
@@ -166,6 +200,7 @@ class Map:
             grid=grid,
             switch_configs=switch_configs,
             gate_configs=gate_configs,
+            teleporter_configs=teleporter_configs,
         )
 
 

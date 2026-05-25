@@ -119,3 +119,5 @@ TEXTURE_SWITCH_ON: Final[arcade.Texture] = arcade.load_texture(":resources:/imag
 
 TEXTURE_GATE_OPEN: Final[arcade.Texture] = _portal_grid[13*4 + 8]
 TEXTURE_GATE_CLOSED: Final[arcade.Texture] = _portal_grid[13*7 + 8]
+
+TEXTURE_TELEPORTER: Final[arcade.Texture] = _overworld_grid[18*12 + 10]

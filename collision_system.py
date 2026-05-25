@@ -4,7 +4,7 @@ import arcade
 
 from constants import HOLE_DEATH_RADIUS
 from gate_system import GateSystem
-from level import Level
+from level import Level, TeleporterInfo
 from player import Player
 from weapon_system import WeaponSystem
 
@@ -13,6 +13,7 @@ from weapon_system import WeaponSystem
 class CollisionResult:
     should_restart: bool = False
     score_delta: int = 0
+    teleport_destination: tuple[float, float] | None = None
 
 
 @dataclass
@@ -22,6 +23,7 @@ class CollisionSystem:
     weapon_system: WeaponSystem
     gate_system: GateSystem
     crystals_sound: arcade.Sound
+    _teleport_cooldown: int = 0
 
     def update(self) -> CollisionResult:
         if self._player_touches_enemy() or self._player_falls_in_hole():
@@ -32,6 +34,13 @@ class CollisionSystem:
         self._handle_boomerang_enemy_hits()
         self._handle_boomerang_switch_hits()
         self._handle_boomerang_wall_hits()
+
+        if self._teleport_cooldown > 0:
+            self._teleport_cooldown -= 1
+
+        teleport_dest = self._check_teleportation()
+        if teleport_dest is not None:
+            return CollisionResult(score_delta=score_delta, teleport_destination=teleport_dest)
 
         return CollisionResult(score_delta=score_delta)
 
@@ -95,3 +104,26 @@ class CollisionSystem:
 
         if self.weapon_system.check_boomerang_collisions(self.level.walls):
             self.weapon_system.return_boomerang_if_launching()
+
+    def _check_teleportation(self) -> tuple[float, float] | None:
+        """Returns the pixel destination if the player steps on a teleporter, else None."""
+        if self._teleport_cooldown > 0:
+            return None
+
+        for tp_sprite, tp_config in self.level.teleporter_infos:
+            if not arcade.check_for_collision(self.player, tp_sprite):
+                continue
+
+            target_sprite: arcade.Sprite | None = None
+            for other_sprite, other_config in self.level.teleporter_infos:
+                if other_config.id == tp_config.target_id:
+                    target_sprite = other_sprite
+                    break
+
+            if target_sprite is None:
+                continue
+
+            self._teleport_cooldown = 60
+            return (target_sprite.center_x, target_sprite.center_y)
+
+        return None

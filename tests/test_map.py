@@ -24,7 +24,7 @@ x  *
     assert game_map.get(3, 2) == GridCell.CRYSTAL
     assert game_map.get(2, 0) == GridCell.SPINNER_HORIZONTAL
     assert game_map.get(3, 0) == GridCell.SPINNER_VERTICAL
-    assert game_map.get(1, 1) == GridCell.GRASS
+    assert game_map.get(1, 1) == GridCell.PLAYER_START
 
 
 def test_from_string_pads_short_rows_with_spaces() -> None:
@@ -38,7 +38,7 @@ xx
 
     game_map = Map.from_string(text)
 
-    assert game_map.get(0, 1) == GridCell.GRASS
+    assert game_map.get(0, 1) == GridCell.PLAYER_START
     assert game_map.get(4, 1) == GridCell.GRASS
     assert game_map.get(0, 0) == GridCell.BUSH
     assert game_map.get(1, 0) == GridCell.BUSH

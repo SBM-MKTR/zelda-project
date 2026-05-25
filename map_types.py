@@ -16,6 +16,7 @@ class GridCell(Enum):
     BLOB = "blob"
     SWITCH = "switch"
     GATE = "gate"
+    TELEPORTER = "teleporter"
     PLAYER_START = "player_start"
 
 
@@ -50,9 +51,18 @@ class GateConfig:
 
 
 @dataclass(frozen=True)
+class TeleporterConfig:
+    id: str
+    x: int
+    y: int
+    target_id: str
+
+
+@dataclass(frozen=True)
 class ParsedHeader:
     width: int
     height: int
     switches_data: list
     gates_data: list
+    teleporters_data: list
     map_start_index: int

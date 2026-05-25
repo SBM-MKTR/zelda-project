@@ -2,7 +2,8 @@ import pytest
 
 import arcade
 
-from map import GridCell, Map, SpinnerBounds, spinner_bounds
+from map import Map, spinner_bounds
+from map_types import GridCell, SpinnerBounds
 from gameview import GameView
 
 

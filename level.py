@@ -4,7 +4,7 @@ from constants import BAT_MOVEMENT_RADIUS, SCALE, SWITCH_SCALE, TILE_SIZE
 from enemies import BatEnemy, Enemy, SpinnerEnemy
 from gate_system import GateInfo, SwitchInfo
 from map import Map, bat_bounds, spinner_bounds
-from map_types import GridCell
+from map_types import GridCell, TeleporterConfig
 from textures import (
     ANIMATION_BAT,
     ANIMATION_CRYSTAL,
@@ -15,8 +15,10 @@ from textures import (
     TEXTURE_HOLE,
     TEXTURE_SWITCH_OFF,
     TEXTURE_SWITCH_ON,
+    TEXTURE_TELEPORTER,
 )
 
+TeleporterInfo = tuple[arcade.Sprite, TeleporterConfig]
 
 @dataclass
 class Level:
@@ -30,9 +32,11 @@ class Level:
     bats: arcade.SpriteList[arcade.TextureAnimationSprite]
     switches: arcade.SpriteList[arcade.Sprite]
     gates: arcade.SpriteList[arcade.Sprite]
+    teleporters: arcade.SpriteList[arcade.Sprite]
     enemies: list[Enemy]
     switch_infos: list[SwitchInfo]
     gate_infos: list[GateInfo]
+    teleporter_infos: list[TeleporterInfo]
 
     def remove_enemy_sprite(self, sprite: arcade.TextureAnimationSprite) -> None:
         self.enemies = [
@@ -54,9 +58,11 @@ def build_level(game_map: Map) -> Level:
     bats: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
     switches: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     gates: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
+    teleporters: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     enemies: list[Enemy] = []
     switch_infos: list[SwitchInfo] = []
     gate_infos: list[GateInfo] = []
+    teleporter_infos: list[TeleporterInfo] = []
 
     switch_configs_by_position = {
         (switch.x, switch.y): switch
@@ -65,6 +71,10 @@ def build_level(game_map: Map) -> Level:
     gate_configs_by_position = {
         (gate.x, gate.y): gate
         for gate in game_map.gate_configs
+    }
+    teleporter_configs_by_position = {
+        (tp.x, tp.y): tp
+        for tp in game_map.teleporter_configs
     }
 
     for y in range(game_map.height):
@@ -121,7 +131,7 @@ def build_level(game_map: Map) -> Level:
                     min_y_pixels = grid_to_pixels(bounds.min_y)
                     max_y_pixels = grid_to_pixels(bounds.max_y)
 
-                    enemy = SpinnerEnemy.from_bounds(
+                    enemy: Enemy = SpinnerEnemy.from_bounds(
                         sprite=spinner,
                         min_x=min_x_pixels,
                         max_x=max_x_pixels,
@@ -193,6 +203,19 @@ def build_level(game_map: Map) -> Level:
                 case GridCell.BLOB:
                     pass
 
+                case GridCell.TELEPORTER:
+                    tp_config = teleporter_configs_by_position[(x, y)]
+
+                    tp_sprite = arcade.Sprite(
+                        TEXTURE_TELEPORTER,
+                        scale=SCALE,
+                        center_x=center_x,
+                        center_y=center_y,
+                    )
+
+                    teleporters.append(tp_sprite)
+                    teleporter_infos.append((tp_sprite, tp_config))
+
     return Level(
         world_width=game_map.width * TILE_SIZE,
         world_height=game_map.height * TILE_SIZE,
@@ -204,7 +227,9 @@ def build_level(game_map: Map) -> Level:
         bats=bats,
         switches=switches,
         gates=gates,
+        teleporters=teleporters,
         enemies=enemies,
         switch_infos=switch_infos,
         gate_infos=gate_infos,
+        teleporter_infos=teleporter_infos,
     )

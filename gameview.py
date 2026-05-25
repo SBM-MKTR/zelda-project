@@ -39,6 +39,7 @@ class GameView(arcade.View):
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     switches: Final[arcade.SpriteList[arcade.Sprite]]
     gates: Final[arcade.SpriteList[arcade.Sprite]]
+    teleporters: Final[arcade.SpriteList[arcade.Sprite]]
     collision_system: Final[CollisionSystem]
     camera_controller: Final[CameraController]
     weapon_system: Final[WeaponSystem]
@@ -72,6 +73,7 @@ class GameView(arcade.View):
         self.bats = self.level.bats
         self.switches = self.level.switches
         self.gates = self.level.gates
+        self.teleporters = self.level.teleporters
         self.gate_system = GateSystem(
             switch_infos=self.level.switch_infos,
             gate_infos=self.level.gate_infos,
@@ -150,6 +152,7 @@ class GameView(arcade.View):
         with self.camera.activate():
             self.grounds.draw()
             self.holes.draw()
+            self.teleporters.draw()
             self.walls.draw()
             self.crystals.draw()
             self.spinners.draw()
@@ -160,6 +163,7 @@ class GameView(arcade.View):
             self.bats.draw()
             # Hit boxes (debug)
             '''self.walls.draw_hit_boxes()
+            self.teleporters.draw_hit_boxes()
             self.crystals.draw_hit_boxes()
             self.spinners.draw_hit_boxes()
             self.player_list.draw_hit_boxes()
@@ -217,6 +221,11 @@ class GameView(arcade.View):
         if collision_result.should_restart:
             self._restart()
             return
+
+        if collision_result.teleport_destination is not None:
+            dest_x, dest_y = collision_result.teleport_destination
+            self.player.center_x = dest_x
+            self.player.center_y = dest_y
 
         self.score += collision_result.score_delta
 

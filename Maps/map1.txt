@@ -27,9 +27,18 @@ gates:
           - switch_is_on: first
         - not:
           - switch_is_on: second
+teleporters:
+  - id: "t1"
+    x: 22
+    y: 13
+    target_id: "t2"
+  - id: "t2"
+    x: 38
+    y: 3
+    target_id: "t1"
 ---
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-x  *               S     x             x
+x  *               S  T  x             x
 x                        x    *   *    x
 x                      * x             x
 x         s        xxxxxxx            sx
@@ -39,7 +48,7 @@ x^   |  v    xxxxxxxxxx        x       x
 x       ^ *                    x   *   x
 x      S              S     *  x       x
 x  *       v    *              O       x
-x         |                    O       x
+x         |                    O      Tx
 x     xx     s        xs               x
 x  P      *           x       *        x
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
