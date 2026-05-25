@@ -1,149 +1,131 @@
 import math
 import networkx as nx
-
-from map import Map, GridCell
+from map_types import GridCell
+from map import Map
 from constants import TILE_SIZE
 
-# 3x3 sub-nodes per cell: positions at 1/6, 3/6, 5/6 of the tile size
-_OFFSETS = [TILE_SIZE * k // 6 for k in (1, 3, 5)]
-
-# A node is a (float, float) pixel position
-Node = tuple[float, float]
+NodeType = tuple[int, int]
 
 
-def _node_position(cell_x: int, cell_y: int, ox: int, oy: int) -> Node:
-    """Returns the pixel position of a sub-node within a cell."""
-    px = cell_x * TILE_SIZE + ox
-    py = cell_y * TILE_SIZE + oy
-    return (float(px), float(py))
+def _is_obstacle_for_blob(cell: GridCell) -> bool:
+    return cell in (GridCell.BUSH, GridCell.HOLE, GridCell.GATE)
 
 
-def _is_too_close_to_bush(
-    px: float, py: float, game_map: Map
-) -> bool:
-    """
-    Returns True if the pixel position (px, py) is strictly closer than
-    TILE_SIZE to the center of any bush cell.
-    """
-    for cy in range(game_map.height):
-        for cx in range(game_map.width):
-            if game_map.get(cx, cy) == GridCell.BUSH:
-                bush_cx = cx * TILE_SIZE + TILE_SIZE // 2
-                bush_cy = cy * TILE_SIZE + TILE_SIZE // 2
-                dx = px - bush_cx
-                dy = py - bush_cy
-                if (dx * dx + dy * dy) < TILE_SIZE * TILE_SIZE:
-                    return True
-    return False
+def _node_pixel_position(ix: int, iy: int, n: int) -> tuple[float, float]:
+    """Retourne la position pixel du nœud (ix, iy) dans la grille de sous-nœuds."""
+    s = TILE_SIZE
+    x = (ix + 0.5) * s / n
+    y = (iy + 0.5) * s / n
+    return x, y
 
 
-def build_navmesh(game_map: Map) -> nx.Graph[Node]:
-    """
-    Builds a navigation graph from a Map.
+def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
+    """Construit le navmesh pour les blobs.
 
-    Each non-bush cell contributes up to 3x3 sub-nodes, placed at
-    positions (1/6, 3/6, 5/6) * TILE_SIZE within the cell.
-    Nodes too close (< TILE_SIZE) to any bush center are excluded.
-
-    Edges connect every node to its 8 neighbours (cardinal + diagonal)
-    with weight = euclidean distance.
+    Args:
+        game_map: la map du jeu
+        n: nombre de sous-nœuds par côté de cellule (doit être impair >= 1)
 
     Returns:
-        A networkx Graph whose nodes are (float, float) pixel positions.
+        Un graphe NetworkX où les nœuds sont des tuples (ix, iy)
+        et les arêtes ont un attribut 'weight' = distance euclidienne.
     """
-    graph: nx.Graph[Node] = nx.Graph()
+    if n < 1 or n % 2 == 0:
+        raise ValueError("n must be a positive odd integer")
 
-    # --- 1. Add nodes ---
-    for cy in range(game_map.height):
-        for cx in range(game_map.width):
-            if game_map.get(cx, cy) == GridCell.BUSH:
-                continue  # no nodes inside bushes
+    graph: nx.Graph[NodeType] = nx.Graph()
+    s = TILE_SIZE
 
-            for oy in _OFFSETS:
-                for ox in _OFFSETS:
-                    px, py = _node_position(cx, cy, ox, oy)
-                    if not _is_too_close_to_bush(px, py, game_map):
-                        graph.add_node((px, py))
+    total_ix = game_map.width * n
+    total_iy = game_map.height * n
 
-    # --- 2. Add edges between neighbouring nodes ---
-    nodes = list(graph.nodes)
-    # Build a set for O(1) lookup
-    node_set: set[Node] = set(nodes)
+    for iy in range(total_iy):
+        for ix in range(total_ix):
+            cell_x = ix // n
+            cell_y = iy // n
 
-    # The step between adjacent sub-nodes (within or across cells)
-    step = TILE_SIZE // 3  # = TILE_SIZE * 2/6, distance between adjacent offsets
+            if _is_obstacle_for_blob(game_map.get(cell_x, cell_y)):
+                continue
 
-    for node in nodes:
-        px, py = node
-        for dy in (-step, 0, step):
-            for dx in (-step, 0, step):
-                if dx == 0 and dy == 0:
+            if n > 1:
+                px, py = _node_pixel_position(ix, iy, n)
+                too_close = False
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        nx_cell = cell_x + dx
+                        ny_cell = cell_y + dy
+                        if not (0 <= nx_cell < game_map.width and 0 <= ny_cell < game_map.height):
+                            continue
+                        if game_map.get(nx_cell, ny_cell) == GridCell.BUSH:
+                            bush_px = (nx_cell + 0.5) * s
+                            bush_py = (ny_cell + 0.5) * s
+                            dist = math.hypot(px - bush_px, py - bush_py)
+                            if dist < s:
+                                too_close = True
+                                break
+                    if too_close:
+                        break
+                if too_close:
                     continue
-                neighbour: Node = (px + dx, py + dy)
-                if neighbour in node_set:
-                    dist = math.sqrt(dx * dx + dy * dy)
-                    graph.add_edge(node, neighbour, weight=dist)
+
+            graph.add_node((ix, iy))
+
+    for (ix, iy) in list(graph.nodes):
+        px, py = _node_pixel_position(ix, iy, n)
+        for diy in (-1, 0, 1):
+            for dix in (-1, 0, 1):
+                if dix == 0 and diy == 0:
+                    continue
+                nix, niy = ix + dix, iy + diy
+                if (nix, niy) in graph.nodes:
+                    npx, npy = _node_pixel_position(nix, niy, n)
+                    weight = math.hypot(px - npx, py - npy)
+                    graph.add_edge((ix, iy), (nix, niy), weight=weight)
 
     return graph
 
 
-def nearest_node(graph: nx.Graph[Node], px: float, py: float) -> Node | None:
-    """
-    Returns the graph node closest (euclidean) to pixel position (px, py).
-    Returns None if the graph is empty.
-    """
-    best: Node | None = None
+def nearest_node(graph: nx.Graph[NodeType], px: float, py: float, n: int) -> NodeType:
+    """Retourne le nœud du graphe le plus proche de la position pixel (px, py)."""
+    best_node: NodeType | None = None
     best_dist = float("inf")
 
     for node in graph.nodes:
-        nx_, ny = node
-        d = (px - nx_) ** 2 + (py - ny) ** 2
+        ix, iy = node
+        npx, npy = _node_pixel_position(ix, iy, n)
+        d = math.hypot(px - npx, py - npy)
         if d < best_dist:
             best_dist = d
-            best = node
+            best_node = node
 
-    return best
+    if best_node is None:
+        raise ValueError("navmesh is empty, cannot find nearest node")
 
+    return best_node
 
 def find_path(
-    graph: nx.Graph[Node], start: Node, end: Node
-) -> list[Node]:
-    """
-    Finds the shortest weighted path between two nodes using Dijkstra.
+    graph: nx.Graph[NodeType],
+    src_px: float, src_py: float,
+    dst_px: float, dst_py: float,
+    n: int,
+) -> list[tuple[float, float]]:
+    """Retourne le chemin en pixels de (src_px, src_py) à (dst_px, dst_py).
 
-    Args:
-        graph: The navmesh graph.
-        start: Starting pixel position (must be a node in the graph).
-        end:   Target pixel position (must be a node in the graph).
-
-    Returns:
-        A list of (float, float) pixel positions from start to end
-        (inclusive). Returns [start] if start == end or no path exists.
+    Retourne une liste de positions pixel à suivre dans l'ordre,
+    incluant src et dst. Retourne [dst] si aucun chemin n'existe.
     """
-    if start == end:
-        return [start]
+    src_node = nearest_node(graph, src_px, src_py, n)
+    dst_node = nearest_node(graph, dst_px, dst_py, n)
 
     try:
-        return nx.dijkstra_path(graph, start, end, weight="weight")
+        node_path = nx.dijkstra_path(graph, src_node, dst_node, weight="weight")
     except nx.NetworkXNoPath:
-        return [start]
+        return [(src_px, src_py)]
 
+    pixel_path: list[tuple[float, float]] = [(src_px, src_py)]
+    for node in node_path:
+        ix, iy = node
+        pixel_path.append(_node_pixel_position(ix, iy, n))
+    pixel_path.append((dst_px, dst_py))
 
-def path_from_positions(
-    graph: nx.Graph[Node], from_px: float, from_py: float, to_px: float, to_py: float
-) -> list[Node]:
-    """
-    High-level helper: finds a path in pixel space from any position to
-    any destination, snapping both endpoints to the nearest graph nodes.
-
-    Returns a list of (float, float) waypoints to follow, starting with
-    the nearest node to the origin and ending with the nearest node to
-    the destination. Returns an empty list if no path can be found.
-    """
-    start_node = nearest_node(graph, from_px, from_py)
-    end_node = nearest_node(graph, to_px, to_py)
-
-    if start_node is None or end_node is None:
-        return []
-
-    return find_path(graph, start_node, end_node)
+    return pixel_path
