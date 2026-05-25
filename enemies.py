@@ -67,7 +67,6 @@ class SpinnerEnemy(Enemy):
 class BatEnemy(Enemy):
     sprite: arcade.TextureAnimationSprite
     bounds: BatBounds
-    # rng non-seedé pour le jeu, seedé dans les tests pour la reproductibilité
     rng: random.Random = field(default_factory=random.Random)
     frame_count: int = 0
 

@@ -39,7 +39,7 @@ teleporters:
 ---
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 x  *               S  T  x             x
-x                        x    *   *    x
+x         b              x    *   *    x
 x                      * x             x
 x         s        xxxxxxx            sx
 x     xxx *   xx                       x
@@ -48,7 +48,7 @@ x^   |  v    xxxxxxxxxx        x       x
 x       ^ *                    x   *   x
 x      S              S     *  x       x
 x  *       v    *              O       x
-x         |                    O      Tx
+x         |         b          O      Tx
 x     xx     s        xs               x
 x  P      *           x       *        x
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

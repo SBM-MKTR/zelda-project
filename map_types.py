@@ -1,5 +1,7 @@
 from enum import Enum
 from dataclasses import dataclass
+from typing import Any
+
 
 class InvalidMapFileException(Exception):
     pass
@@ -47,7 +49,7 @@ class SwitchConfig:
 class GateConfig:
     x: int
     y: int
-    open_if: dict[str, object]
+    open_if: dict[str, Any]
 
 
 @dataclass(frozen=True)
