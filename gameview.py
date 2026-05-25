@@ -18,6 +18,8 @@ from player import Direction, Player
 from boomerang import Boomerang
 from weapon_system import WeaponSystem
 from sounds import CRYSTALS_SOUND
+from gameoverview import GameOverView
+
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -31,6 +33,7 @@ class GameView(arcade.View):
     player_list: Final[arcade.SpriteList[Player]]
     grounds: Final[arcade.SpriteList[arcade.Sprite]]
     walls: Final[arcade.SpriteList[arcade.Sprite]]
+    ices: Final[arcade.SpriteList[arcade.Sprite]]
     crystals: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     physics_engine: Final[arcade.PhysicsEngineSimple]
     camera: Final[arcade.camera.Camera2D]
@@ -72,6 +75,7 @@ class GameView(arcade.View):
 
         self.grounds = self.level.grounds
         self.walls = self.level.walls
+        self.ices = self.level.ices
         self.crystals = self.level.crystals
         self.spinners = self.level.spinners
         self.holes = self.level.holes
@@ -117,7 +121,7 @@ class GameView(arcade.View):
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
-        self.window.show_view(GameView(self.__map))
+        self.window.show_view(GameOverView(self.__map, self.score))
 
     @staticmethod
     def _direction_from_key(symbol: int) -> Direction | None:
@@ -154,6 +158,7 @@ class GameView(arcade.View):
         self.clear() # always start with self.clear()
         with self.camera.activate():
             self.grounds.draw()
+            self.ices.draw()
             self.holes.draw()
             self.teleporters.draw()
             self.walls.draw()

@@ -16,6 +16,7 @@ from textures import (
     TEXTURE_SWITCH_OFF,
     TEXTURE_SWITCH_ON,
     TEXTURE_TELEPORTER,
+    TEXTURE_ICE,
 )
 
 TeleporterInfo = tuple[arcade.Sprite, TeleporterConfig]
@@ -26,6 +27,7 @@ class Level:
     world_height: int
     grounds: arcade.SpriteList[arcade.Sprite]
     walls: arcade.SpriteList[arcade.Sprite]
+    ices: arcade.SpriteList[arcade.Sprite]
     crystals: arcade.SpriteList[arcade.TextureAnimationSprite]
     spinners: arcade.SpriteList[arcade.TextureAnimationSprite]
     holes: arcade.SpriteList[arcade.Sprite]
@@ -52,6 +54,7 @@ def grid_to_pixels(i: int) -> int:
 def build_level(game_map: Map) -> Level:
     grounds: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
     walls: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
+    ices: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     crystals: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
     spinners: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
     holes: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
@@ -101,6 +104,16 @@ def build_level(game_map: Map) -> Level:
                     walls.append(
                         arcade.Sprite(
                             TEXTURE_BUSH,
+                            scale=SCALE,
+                            center_x=center_x,
+                            center_y=center_y,
+                        )
+                    )
+
+                case GridCell.ICE:
+                    ices.append(
+                        arcade.Sprite(
+                            TEXTURE_ICE,
                             scale=SCALE,
                             center_x=center_x,
                             center_y=center_y,
@@ -221,6 +234,7 @@ def build_level(game_map: Map) -> Level:
         world_height=game_map.height * TILE_SIZE,
         grounds=grounds,
         walls=walls,
+        ices=ices,
         crystals=crystals,
         spinners=spinners,
         holes=holes,

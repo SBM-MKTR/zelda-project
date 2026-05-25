@@ -20,6 +20,7 @@ class GridCell(Enum):
     GATE = "gate"
     TELEPORTER = "teleporter"
     PLAYER_START = "player_start"
+    ICE = "ice"
 
 
 @dataclass(frozen=True)
