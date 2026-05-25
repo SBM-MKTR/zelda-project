@@ -40,7 +40,7 @@ x       ^ *                    x   *   x
 x      S              S     *  x       x
 x  *       v    *              O       x
 x         |                    O       x
-x     xx     s        xs               x
-x  P      *           x       *        x
+x  P  xx     s        xs               x
+x         *           x       *        x
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ---

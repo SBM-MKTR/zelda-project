@@ -6,7 +6,7 @@ from constants import HOLE_DEATH_RADIUS
 from gate_system import GateSystem
 from level import Level
 from player import Player
-from weapon_system import WeaponSystem
+from weapon_system import Weapon, WeaponSystem
 
 
 @dataclass(frozen=True)
@@ -29,9 +29,9 @@ class CollisionSystem:
 
         score_delta = self._collect_crystals()
 
-        self._handle_boomerang_enemy_hits()
-        self._handle_boomerang_switch_hits()
-        self._handle_boomerang_wall_hits()
+        self._handle_weapon_enemy_hits()
+        self._handle_weapon_switch_hits()
+        self._handle_weapon_obstacle_hits()
 
         return CollisionResult(score_delta=score_delta)
 
@@ -66,32 +66,35 @@ class CollisionSystem:
 
         return score_delta
 
-    def _handle_boomerang_enemy_hits(self) -> None:
-        for spinner in self.weapon_system.check_boomerang_collisions(
+    def _handle_weapon_enemy_hits(self) -> None:
+        for weapon, spinner in self.weapon_system.check_target_collisions(
             self.level.spinners,
         ):
-            self._remove_enemy_hit(spinner)
+            self._remove_enemy_hit(spinner, weapon)
 
-        for bat in self.weapon_system.check_boomerang_collisions(
+        for weapon, bat in self.weapon_system.check_target_collisions(
             self.level.bats,
         ):
-            self._remove_enemy_hit(bat)
+            self._remove_enemy_hit(bat, weapon)
 
-    def _remove_enemy_hit(self, enemy_sprite: arcade.TextureAnimationSprite) -> None:
+    def _remove_enemy_hit(
+        self,
+        enemy_sprite: arcade.TextureAnimationSprite,
+        weapon: Weapon,
+    ) -> None:
         self.level.remove_enemy_sprite(enemy_sprite)
         enemy_sprite.remove_from_sprite_lists()
-        self.weapon_system.return_boomerang_if_launching()
+        weapon.on_hit()
 
-    def _handle_boomerang_switch_hits(self) -> None:
-        for switch in self.weapon_system.check_boomerang_collisions(
+    def _handle_weapon_switch_hits(self) -> None:
+        for weapon, switch in self.weapon_system.check_target_collisions(
             self.level.switches,
         ):
             self.gate_system.toggle_switch(switch)
-            self.weapon_system.return_boomerang_if_launching()
+            weapon.on_hit()
 
-    def _handle_boomerang_wall_hits(self) -> None:
-        if not self.weapon_system.is_boomerang_launching():
-            return
-
-        if self.weapon_system.check_boomerang_collisions(self.level.walls):
-            self.weapon_system.return_boomerang_if_launching()
+    def _handle_weapon_obstacle_hits(self) -> None:
+        for weapon, _wall in self.weapon_system.check_obstacle_collisions(
+            self.level.walls,
+        ):
+            weapon.on_hit()
