@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import random
 
@@ -67,6 +67,8 @@ class SpinnerEnemy(Enemy):
 class BatEnemy(Enemy):
     sprite: arcade.TextureAnimationSprite
     bounds: BatBounds
+    # rng non-seedé pour le jeu, seedé dans les tests pour la reproductibilité
+    rng: random.Random = field(default_factory=random.Random)
     frame_count: int = 0
 
     def __post_init__(self) -> None:
@@ -77,7 +79,7 @@ class BatEnemy(Enemy):
 
         if self.frame_count % 50 == 0:
             angle = math.atan2(self.sprite.change_y, self.sprite.change_x)
-            new_angle = random.triangular(angle - math.pi, angle + math.pi, angle)
+            new_angle = self.rng.triangular(angle - math.pi, angle + math.pi, angle)
             self._set_direction(new_angle)
 
         self.sprite.center_x += self.sprite.change_x
@@ -96,7 +98,7 @@ class BatEnemy(Enemy):
             self.sprite.change_y *= -1
 
     def _choose_random_direction(self) -> None:
-        self._set_direction(random.uniform(0, 2 * math.pi))
+        self._set_direction(self.rng.uniform(0, 2 * math.pi))
 
     def _set_direction(self, angle: float) -> None:
         self.sprite.change_x = math.cos(angle) * BAT_MOVEMENT_SPEED

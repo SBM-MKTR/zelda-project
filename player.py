@@ -1,8 +1,13 @@
 
 from typing import Final
 from enum import Enum, auto
-from textures import *
-from constants import *
+from constants import PLAYER_MOVEMENT_SPEED, SCALE
+from textures import (
+    ANIMATION_PLAYER_IDLE_DOWN,
+    ANIMATION_PLAYER_IDLE_LEFT,
+    ANIMATION_PLAYER_IDLE_RIGHT,
+    ANIMATION_PLAYER_IDLE_UP,
+)
 import arcade
 
 
@@ -27,7 +32,7 @@ class Player(arcade.TextureAnimationSprite) :
             center_x=center_x,
             center_y=center_y,
         )
-        
+
 
         self.direction = Direction.SOUTH
         self.__right_pressed = False

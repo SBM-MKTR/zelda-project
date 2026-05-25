@@ -93,3 +93,18 @@ P@x
 
     with pytest.raises(InvalidMapFileException):
         Map.from_string(text)
+
+def test_player_start_cell_is_stored_in_grid() -> None:
+    """La cellule de départ du joueur doit être GridCell.PLAYER_START dans la grille."""
+    text = """width: 3
+height: 3
+---
+xxx
+xPx
+xxx
+---
+"""
+    game_map = Map.from_string(text)
+    assert game_map.player_start_x == 1
+    assert game_map.player_start_y == 1
+    assert game_map.get(1, 1) == GridCell.PLAYER_START

@@ -2,11 +2,11 @@ from dataclasses import dataclass
 
 import arcade
 
-from boomerang import Boomerang, BoomerangState
 from constants import HOLE_DEATH_RADIUS
 from gate_system import GateSystem
 from level import Level
 from player import Player
+from weapon_system import WeaponSystem
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,7 @@ class CollisionResult:
 class CollisionSystem:
     level: Level
     player: Player
-    boomerang: Boomerang
+    weapon_system: WeaponSystem
     gate_system: GateSystem
     crystals_sound: arcade.Sound
 
@@ -67,14 +67,12 @@ class CollisionSystem:
         return score_delta
 
     def _handle_boomerang_enemy_hits(self) -> None:
-        for spinner in arcade.check_for_collision_with_list(
-            self.boomerang,
+        for spinner in self.weapon_system.check_boomerang_collisions(
             self.level.spinners,
         ):
             self._remove_enemy_hit(spinner)
 
-        for bat in arcade.check_for_collision_with_list(
-            self.boomerang,
+        for bat in self.weapon_system.check_boomerang_collisions(
             self.level.bats,
         ):
             self._remove_enemy_hit(bat)
@@ -82,23 +80,18 @@ class CollisionSystem:
     def _remove_enemy_hit(self, enemy_sprite: arcade.TextureAnimationSprite) -> None:
         self.level.remove_enemy_sprite(enemy_sprite)
         enemy_sprite.remove_from_sprite_lists()
-        self._return_boomerang_if_launching()
+        self.weapon_system.return_boomerang_if_launching()
 
     def _handle_boomerang_switch_hits(self) -> None:
-        for switch in arcade.check_for_collision_with_list(
-            self.boomerang,
+        for switch in self.weapon_system.check_boomerang_collisions(
             self.level.switches,
         ):
             self.gate_system.toggle_switch(switch)
-            self._return_boomerang_if_launching()
+            self.weapon_system.return_boomerang_if_launching()
 
     def _handle_boomerang_wall_hits(self) -> None:
-        if self.boomerang.state != BoomerangState.LAUNCHING:
+        if not self.weapon_system.is_boomerang_launching():
             return
 
-        if arcade.check_for_collision_with_list(self.boomerang, self.level.walls):
-            self.boomerang.state = BoomerangState.RETURNING
-
-    def _return_boomerang_if_launching(self) -> None:
-        if self.boomerang.state == BoomerangState.LAUNCHING:
-            self.boomerang.state = BoomerangState.RETURNING
+        if self.weapon_system.check_boomerang_collisions(self.level.walls):
+            self.weapon_system.return_boomerang_if_launching()

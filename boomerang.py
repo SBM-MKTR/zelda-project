@@ -1,11 +1,10 @@
 from enum import Enum
+
 import arcade
 
-from constants import *
-from textures import *
-from player import *
-
-
+from constants import BOOMERANG_MAX_DISTANCE, BOOMERANG_SPEED, SCALE
+from player import Direction, Player
+from textures import ANIMATION_BOOMERANG
 
 class BoomerangState(Enum):
     INACTIVE = 0

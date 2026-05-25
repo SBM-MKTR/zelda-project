@@ -9,7 +9,8 @@ from gate_system import GateSystem
 from level import Level, build_level, grid_to_pixels
 from map import Map
 from player import Direction, Player
-from boomerang import Boomerang, BoomerangState
+from boomerang import Boomerang
+from weapon_system import WeaponSystem
 from sounds import CRYSTALS_SOUND
 
 class GameView(arcade.View):
@@ -31,6 +32,7 @@ class GameView(arcade.View):
     crystals_sound: Final[arcade.Sound]
     spinners: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     score: int
+    score_text: Final[arcade.Text]
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
     boomerangs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
@@ -39,6 +41,7 @@ class GameView(arcade.View):
     gates: Final[arcade.SpriteList[arcade.Sprite]]
     collision_system: Final[CollisionSystem]
     camera_controller: Final[CameraController]
+    weapon_system: Final[WeaponSystem]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -77,9 +80,9 @@ class GameView(arcade.View):
         )
         self.gate_system.update()
 
-        self.boomerang = Boomerang()
-        self.boomerangs = arcade.SpriteList(use_spatial_hash=False)
-        self.boomerangs.append(self.boomerang)
+        self.weapon_system = WeaponSystem()
+        self.boomerang = self.weapon_system.boomerang
+        self.boomerangs = self.weapon_system.boomerangs
 
         self.physics_engine = arcade.PhysicsEngineSimple(self.player, self.walls)
         self.camera = arcade.camera.Camera2D()
@@ -94,11 +97,18 @@ class GameView(arcade.View):
         self.collision_system = CollisionSystem(
             level=self.level,
             player=self.player,
-            boomerang=self.boomerang,
+            weapon_system=self.weapon_system,
             gate_system=self.gate_system,
             crystals_sound=self.crystals_sound,
         )
         self.score = 0
+        self.score_text = arcade.Text(
+              "Score: 0",
+              10,
+              self.window.height - 30,
+              arcade.color.WHITE,
+              16,
+          )
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
@@ -125,6 +135,7 @@ class GameView(arcade.View):
         # limit the size of the window.
         self.window.width = min(MAX_WINDOW_WIDTH, self.world_width)
         self.window.height = min(MAX_WINDOW_HEIGHT, self.world_height)
+        self.score_text.y = self.window.height - 30
 
         self.camera_controller.center_on_player()
         self.camera_controller.update(self.window.width, self.window.height)
@@ -145,8 +156,7 @@ class GameView(arcade.View):
             self.switches.draw()
             self.gates.draw()
             self.player_list.draw()
-            if self.boomerang.state != BoomerangState.INACTIVE:
-                self.boomerangs.draw()
+            self.weapon_system.draw()
             self.bats.draw()
             # Hit boxes (debug)
             '''self.walls.draw_hit_boxes()
@@ -159,15 +169,8 @@ class GameView(arcade.View):
             self.gates.draw_hit_boxes'''
 
         with self.camera_ui.activate():
-            score_text = arcade.Text(
-                f"Score: {self.score}",
-                10,
-                self.window.height - 30,
-                arcade.color.WHITE,
-                16,
-            )
-            score_text.draw()
-            """ self.player_list.draw_hit_boxes()"""
+            self.score_text.text = f"Score: {self.score}"
+            self.score_text.draw()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         """Called when the user presses a key on the keyboard."""
@@ -178,7 +181,7 @@ class GameView(arcade.View):
         if direction is not None :
             self.player.press_direction(direction)
         if symbol == arcade.key.D:
-            self.boomerang.launch(self.player)
+            self.weapon_system.launch_boomerang(self.player)
 
     def on_key_release(self, symbol: int, modifiers: int) -> None:
         """Called when the user releases a key on the keyboard."""
@@ -207,8 +210,7 @@ class GameView(arcade.View):
         self.spinners.update_animation()
         self.bats.update_animation()
 
-        self.boomerang.update_boomerang(self.player)
-        self.boomerang.update_animation()
+        self.weapon_system.update(self.player)
 
         collision_result = self.collision_system.update()
 

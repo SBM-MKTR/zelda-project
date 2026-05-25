@@ -1,7 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
 
-
 class InvalidMapFileException(Exception):
     pass
 
@@ -17,6 +16,7 @@ class GridCell(Enum):
     BLOB = "blob"
     SWITCH = "switch"
     GATE = "gate"
+    PLAYER_START = "player_start"
 
 
 @dataclass(frozen=True)
@@ -46,7 +46,7 @@ class SwitchConfig:
 class GateConfig:
     x: int
     y: int
-    open_if: dict
+    open_if: dict[str, object]
 
 
 @dataclass(frozen=True)

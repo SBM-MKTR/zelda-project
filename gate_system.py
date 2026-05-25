@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import arcade
 
@@ -22,6 +22,17 @@ class GateSystem:
     gate_infos: list[GateInfo]
     walls: arcade.SpriteList[arcade.Sprite]
     gates: arcade.SpriteList[arcade.Sprite]
+    _switch_state_map: dict[arcade.Sprite, bool] = field(
+        init=False, default_factory=dict
+    )
+
+    def __post_init__(self) -> None:
+        # Initialise l'état logique depuis la texture initiale (définie dans level.py).
+        # Après cela, la texture est une conséquence de l'état, non plus sa source.
+        self._switch_state_map = {
+            sprite: sprite.texture == TEXTURE_SWITCH_ON
+            for sprite, _ in self.switch_infos
+        }
 
     def update(self) -> None:
         switch_states = self._switch_states()
@@ -31,16 +42,15 @@ class GateSystem:
             self._set_gate_open(gate_sprite, is_open)
 
     def toggle_switch(self, switch: arcade.Sprite) -> None:
-        if switch.texture == TEXTURE_SWITCH_OFF:
-            switch.texture = TEXTURE_SWITCH_ON
-        elif switch.texture == TEXTURE_SWITCH_ON:
-            switch.texture = TEXTURE_SWITCH_OFF
-        else:
-            raise ValueError("switch sprite has an unknown texture")
+        if switch not in self._switch_state_map:
+            raise ValueError("switch sprite inconnu")
+        new_state = not self._switch_state_map[switch]
+        self._switch_state_map[switch] = new_state
+        switch.texture = TEXTURE_SWITCH_ON if new_state else TEXTURE_SWITCH_OFF
 
     def _switch_states(self) -> dict[str, bool]:
         return {
-            switch_id: sprite.texture == TEXTURE_SWITCH_ON
+            switch_id: self._switch_state_map[sprite]
             for sprite, switch_id in self.switch_infos
         }
 

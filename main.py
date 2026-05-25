@@ -1,11 +1,11 @@
+from pathlib import Path
+import sys
+
 import arcade
 
-import sys
-from pathlib import Path
-
-from constants import *
+from constants import MAX_WINDOW_HEIGHT, MAX_WINDOW_WIDTH, WINDOW_TITLE
 from gameview import GameView
-from map import *
+from map import InvalidMapFileException, Map
 
 DEFAULT_MAP_PATH = "Maps/map1.txt"
 
