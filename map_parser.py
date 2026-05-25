@@ -117,7 +117,7 @@ def build_grid(
                 if player_position is not None:
                     raise InvalidMapFileException("map must contain exactly one 'P'")
                 player_position = (x, y)
-                grid[y][x] = GridCell.PLAYER_START
+                grid[y][x] = GridCell.GRASS
                 continue
 
             grid[y][x] = _cell_from_char(char)
