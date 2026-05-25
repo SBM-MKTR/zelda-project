@@ -18,6 +18,7 @@ from player import Direction, Player
 from boomerang import Boomerang
 from weapon_system import WeaponSystem
 from sounds import CRYSTALS_SOUND
+from enemies import EnemyUpdateContext
 
 class GameView(arcade.View):
     """Main in-game view."""
@@ -48,6 +49,7 @@ class GameView(arcade.View):
     collision_system: Final[CollisionSystem]
     camera_controller: Final[CameraController]
     weapon_system: Final[WeaponSystem]
+    blobs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -114,6 +116,7 @@ class GameView(arcade.View):
             arcade.color.WHITE,
             SCORE_TEXT_SIZE,
         )
+        self.blobs = self.level.blobs
 
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
@@ -159,6 +162,7 @@ class GameView(arcade.View):
             self.walls.draw()
             self.crystals.draw()
             self.spinners.draw()
+            self.blobs.draw()
             self.switches.draw()
             self.gates.draw()
             if not self.weapon_system.sword_weapon.is_active():
@@ -205,8 +209,13 @@ class GameView(arcade.View):
             self.player.release_direction(direction)
 
     def _update_enemies(self) -> None:
+        context = EnemyUpdateContext(
+            player=self.player,
+            line_of_sight_walls=self.walls,
+        )
+
         for enemy in self.level.enemies:
-            enemy.update()
+            enemy.update(context)
 
     def _update_gates(self) -> None:
         self.gate_system.update()
@@ -225,6 +234,7 @@ class GameView(arcade.View):
         self.crystals.update_animation()
         self.spinners.update_animation()
         self.bats.update_animation()
+        self.blobs.update_animation()
 
         self.weapon_system.update(self.player, delta_time)
 

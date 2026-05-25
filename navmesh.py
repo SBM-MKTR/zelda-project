@@ -105,15 +105,12 @@ def nearest_node(graph: nx.Graph[NodeType], px: float, py: float, n: int) -> Nod
 
 def find_path(
     graph: nx.Graph[NodeType],
-    src_px: float, src_py: float,
-    dst_px: float, dst_py: float,
+    src_px: float,
+    src_py: float,
+    dst_px: float,
+    dst_py: float,
     n: int,
 ) -> list[tuple[float, float]]:
-    """Retourne le chemin en pixels de (src_px, src_py) à (dst_px, dst_py).
-
-    Retourne une liste de positions pixel à suivre dans l'ordre,
-    incluant src et dst. Retourne [dst] si aucun chemin n'existe.
-    """
     src_node = nearest_node(graph, src_px, src_py, n)
     dst_node = nearest_node(graph, dst_px, dst_py, n)
 
@@ -123,9 +120,10 @@ def find_path(
         return [(src_px, src_py)]
 
     pixel_path: list[tuple[float, float]] = [(src_px, src_py)]
-    for node in node_path:
+
+    for node in node_path[1:]:
         ix, iy = node
         pixel_path.append(_node_pixel_position(ix, iy, n))
-    pixel_path.append((dst_px, dst_py))
 
+    pixel_path.append((dst_px, dst_py))
     return pixel_path

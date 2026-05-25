@@ -1,90 +1,149 @@
-import random
+from dataclasses import dataclass, field
 import math
-from dataclasses import dataclass
+import random
+
+import arcade
+import networkx as nx
+
+from constants import (
+    BLOB_ARRIVAL_THRESHOLD,
+    BLOB_LINE_OF_SIGHT_MAX,
+    BLOB_MOVEMENT_SPEED,
+    BLOB_PATROL_RADIUS,
+    TILE_SIZE,
+)
+from enemies import Enemy, EnemyUpdateContext
 from map import Map
 from map_types import GridCell
-from constants import TILE_SIZE
-import networkx as nx
-from navmesh import find_path, NodeType
-
-PATROL_RADIUS = 3       # demi-côté du carré de patrouille (7 cellules = rayon 3)
-BLOB_SPEED = 1.0        # pixels par frame
-ARRIVAL_THRESHOLD = 4.0 # distance en pixels pour considérer la destination atteinte
-LINE_OF_SIGHT_MAX = 5 * TILE_SIZE
+from navmesh import NodeType, find_path
 
 
-@dataclass
-class BlobState:
-    start_cell_x: int
-    start_cell_y: int
-    pos_x: float
-    pos_y: float
-    destination: tuple[float, float]
-    path: list[tuple[float, float]]
-    possible_destinations: list[tuple[float, float]]
+Position = tuple[float, float]
+Path = list[Position]
+
+BLOB_DESTINATION_OBSTACLES = (
+    GridCell.BUSH,
+    GridCell.HOLE,
+    GridCell.GATE,
+)
 
 
-def build_possible_destinations(game_map: Map, cell_x: int, cell_y: int) -> list[tuple[float, float]]:
-    """Calcule les destinations aléatoires possibles d'un blob centré en (cell_x, cell_y)."""
-    destinations = []
-    for dy in range(-PATROL_RADIUS, PATROL_RADIUS + 1):
-        for dx in range(-PATROL_RADIUS, PATROL_RADIUS + 1):
-            cx, cy = cell_x + dx, cell_y + dy
-            if not (0 <= cx < game_map.width and 0 <= cy < game_map.height):
+def _cell_center(cell_x: int, cell_y: int) -> Position:
+    return (
+        (cell_x + 0.5) * TILE_SIZE,
+        (cell_y + 0.5) * TILE_SIZE,
+    )
+
+
+def build_possible_destinations(
+    game_map: Map,
+    cell_x: int,
+    cell_y: int,
+) -> list[Position]:
+    destinations: list[Position] = []
+
+    for dy in range(-BLOB_PATROL_RADIUS, BLOB_PATROL_RADIUS + 1):
+        for dx in range(-BLOB_PATROL_RADIUS, BLOB_PATROL_RADIUS + 1):
+            x = cell_x + dx
+            y = cell_y + dy
+
+            if not (0 <= x < game_map.width and 0 <= y < game_map.height):
                 continue
-            cell = game_map.get(cx, cy)
-            if cell not in (GridCell.BUSH, GridCell.HOLE):
-                px = (cx + 0.5) * TILE_SIZE
-                py = (cy + 0.5) * TILE_SIZE
-                destinations.append((px, py))
+
+            if game_map.get(x, y) in BLOB_DESTINATION_OBSTACLES:
+                continue
+
+            destinations.append(_cell_center(x, y))
+
     return destinations
 
 
-def pick_new_destination(state: BlobState) -> tuple[float, float]:
-    return random.choice(state.possible_destinations)
+@dataclass
+class BlobEnemy(Enemy):
+    sprite: arcade.TextureAnimationSprite
+    navmesh: nx.Graph[NodeType]
+    navmesh_subdivisions: int
+    possible_destinations: list[Position]
+    rng: random.Random = field(default_factory=random.Random)
+    destination: Position = field(init=False)
+    path: Path = field(init=False, default_factory=list)
 
+    def __post_init__(self) -> None:
+        if not self.possible_destinations:
+            self.possible_destinations = [self._position()]
 
-def update_blob(
-    state: BlobState,
-    graph: nx.Graph[NodeType],
-    n: int,
-    player_px: float | None,
-) -> BlobState:
-    """Met à jour l'état du blob pour une frame.
+        self.destination = self._pick_new_destination()
+        self._refresh_path()
 
-    player_px/py = position du joueur si visible, None sinon.
-    """
-    # 1. Mise à jour de la destination
-    if player_px is not None:
-        new_dest = (player_px, state.destination[1])  # à adapter avec player_py
-        new_path = find_path(graph, state.pos_x, state.pos_y, *new_dest, n)
-    elif math.hypot(state.pos_x - state.destination[0], state.pos_y - state.destination[1]) < ARRIVAL_THRESHOLD:
-        new_dest = pick_new_destination(state)
-        new_path = find_path(graph, state.pos_x, state.pos_y, *new_dest, n)
-    else:
-        new_dest = state.destination
-        new_path = state.path
+    def update(self, context: EnemyUpdateContext) -> None:
+        previous_destination = self.destination
+        visible_player_position = self._visible_player_position(context)
 
-    # 2. Déplacement le long du chemin
-    if len(new_path) >= 2:
-        next_point = new_path[1]
-        dx = next_point[0] - state.pos_x
-        dy = next_point[1] - state.pos_y
-        dist = math.hypot(dx, dy)
-        if dist < BLOB_SPEED:
-            new_path = new_path[1:]
-            new_pos = (state.pos_x + dx, state.pos_y + dy)
-        else:
-            new_pos = (state.pos_x + dx / dist * BLOB_SPEED, state.pos_y + dy / dist * BLOB_SPEED)
-    else:
-        new_pos = (state.pos_x, state.pos_y)
+        if visible_player_position is not None:
+            self.destination = visible_player_position
+        elif self._has_arrived():
+            self.destination = self._pick_new_destination()
 
-    return BlobState(
-        start_cell_x=state.start_cell_x,
-        start_cell_y=state.start_cell_y,
-        pos_x=new_pos[0],
-        pos_y=new_pos[1],
-        destination=new_dest,
-        path=new_path,
-        possible_destinations=state.possible_destinations,
-    )
+        if self.destination != previous_destination or len(self.path) < 2:
+            self._refresh_path()
+
+        self._advance_along_path()
+
+    def _position(self) -> Position:
+        return self.sprite.center_x, self.sprite.center_y
+
+    def _pick_new_destination(self) -> Position:
+        return self.rng.choice(self.possible_destinations)
+
+    def _has_arrived(self) -> bool:
+        return (
+            math.hypot(
+                self.sprite.center_x - self.destination[0],
+                self.sprite.center_y - self.destination[1],
+            )
+            <= BLOB_ARRIVAL_THRESHOLD
+        )
+
+    def _visible_player_position(
+        self,
+        context: EnemyUpdateContext,
+    ) -> Position | None:
+        observer = self._position()
+        target = (context.player.center_x, context.player.center_y)
+
+        if arcade.has_line_of_sight(
+            observer,
+            target,
+            context.line_of_sight_walls,
+            max_distance=BLOB_LINE_OF_SIGHT_MAX,
+        ):
+            return target
+
+        return None
+
+    def _refresh_path(self) -> None:
+        self.path = find_path(
+            self.navmesh,
+            self.sprite.center_x,
+            self.sprite.center_y,
+            self.destination[0],
+            self.destination[1],
+            self.navmesh_subdivisions,
+        )
+
+    def _advance_along_path(self) -> None:
+        while len(self.path) >= 2:
+            next_x, next_y = self.path[1]
+            dx = next_x - self.sprite.center_x
+            dy = next_y - self.sprite.center_y
+            distance = math.hypot(dx, dy)
+
+            if distance <= BLOB_MOVEMENT_SPEED:
+                self.sprite.center_x = next_x
+                self.sprite.center_y = next_y
+                self.path = self.path[1:]
+                continue
+
+            self.sprite.center_x += dx / distance * BLOB_MOVEMENT_SPEED
+            self.sprite.center_y += dy / distance * BLOB_MOVEMENT_SPEED
+            return
