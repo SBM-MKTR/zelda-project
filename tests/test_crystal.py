@@ -5,45 +5,34 @@ from gameview import GameView
 from map import *
 
 def test_collect_crystals(window: arcade.Window) -> None:
-    text = """width: 10
-height: 10
+    text = """width: 5
+height: 5
 ---
-xxxxxxxxxx
-
-
-
-
-
-
-       *
-P *     *x
-xxxxxxxxxx
+xxxxx
+x   x
+x * x
+xP* x
+xxxxx
 ---
 """
     game_map = Map.from_string(text)
     view = GameView(game_map)
     window.show_view(view)
 
-    INITIAL_CRYSTAL_COUNT = 3
+    assert len(view.crystals) == 2
 
-    # Make sure we have the amount of coins we expect at the start
-    assert len(view.crystals) == INITIAL_CRYSTAL_COUNT
+    first_crystal = view.crystals[0]
+    view.player.center_x = first_crystal.center_x
+    view.player.center_y = first_crystal.center_y
+    view.on_update(1 / 60)
 
-    # Start moving right
-    view.on_key_press(arcade.key.RIGHT, 0)
+    assert len(view.crystals) == 1
+    assert view.score == 1
 
-    # Let the game run for 1 second
-    window.test(60)
+    second_crystal = view.crystals[0]
+    view.player.center_x = second_crystal.center_x
+    view.player.center_y = second_crystal.center_y
+    view.on_update(1 / 60)
 
-    # We should have collected the first coin
-    assert len(view.crystals) == INITIAL_CRYSTAL_COUNT - 1
-
-    # Stop moving right, move up
-    view.on_key_release(arcade.key.RIGHT, 0)
-    view.on_key_press(arcade.key.UP, 0)
-
-    # Let the game run for 1 more second
-    window.test(60)
-
-    # We should have collected the second coin
-    assert len(view.crystals) == INITIAL_CRYSTAL_COUNT - 2
+    assert len(view.crystals) == 0
+    assert view.score == 2

@@ -57,12 +57,11 @@ def test_formula_nested() -> None:
 # ---------------------------------------------------------------------------
 # Tests d'intégration avec Arcade
 # ---------------------------------------------------------------------------
-
 _MAP_SWITCH_ONLY = textwrap.dedent("""\
     width: 8
     height: 5
     switches:
-    - id: sw1
+      - id: sw1
         x: 5
         y: 2
     ---
@@ -78,14 +77,14 @@ _MAP_SWITCH_AND_GATE = textwrap.dedent("""\
     width: 8
     height: 5
     switches:
-    - id: sw1
+      - id: sw1
         x: 5
         y: 2
     gates:
-    - x: 6
+      - x: 6
         y: 2
         open_if:
-        switch_is_on: sw1
+          switch_is_on: sw1
     ---
     xxxxxxxx
     x      x

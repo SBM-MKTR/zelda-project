@@ -18,7 +18,6 @@ class GridCell(Enum):
     BLOB = "blob"
     SWITCH = "switch"
     GATE = "gate"
-    PLAYER_START = "player_start"
 
 
 @dataclass(frozen=True)

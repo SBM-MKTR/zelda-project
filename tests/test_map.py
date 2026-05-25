@@ -107,4 +107,4 @@ xxx
     game_map = Map.from_string(text)
     assert game_map.player_start_x == 1
     assert game_map.player_start_y == 1
-    assert game_map.get(1, 1) == GridCell.PLAYER_START
+    assert game_map.get(1, 1) == GridCell.GRASS
