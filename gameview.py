@@ -23,6 +23,10 @@ from gamewinview import GameWinView
 
 from enemies import EnemyUpdateContext
 
+from power_system import PowerSystem
+
+
+
 class GameView(arcade.View):
     """Main in-game view."""
 
@@ -50,10 +54,13 @@ class GameView(arcade.View):
     switches: Final[arcade.SpriteList[arcade.Sprite]]
     gates: Final[arcade.SpriteList[arcade.Sprite]]
     teleporters: Final[arcade.SpriteList[arcade.Sprite]]
+    keys: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
+    chests: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     collision_system: Final[CollisionSystem]
     camera_controller: Final[CameraController]
     weapon_system: Final[WeaponSystem]
     blobs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
+    power_system: Final[PowerSystem]
 
     def __init__(self, map: Map) -> None:
         # Magical incantion: initialize the Arcade view
@@ -86,6 +93,8 @@ class GameView(arcade.View):
         self.switches = self.level.switches
         self.gates = self.level.gates
         self.teleporters = self.level.teleporters
+        self.keys = self.level.keys
+        self.chests = self.level.chests
         self.gate_system = GateSystem(
             switch_infos=self.level.switch_infos,
             gate_infos=self.level.gate_infos,
@@ -106,12 +115,17 @@ class GameView(arcade.View):
             world_height=self.world_height,
         )
         self.crystals_sound = CRYSTALS_SOUND
+        self.power_system = PowerSystem(
+            player=self.player,
+            enemies=self.level.enemies,
+        )
         self.collision_system = CollisionSystem(
             level=self.level,
             player=self.player,
             weapon_system=self.weapon_system,
             gate_system=self.gate_system,
             crystals_sound=self.crystals_sound,
+            power_system=self.power_system,
         )
         self.score = 0
         self.score_text = arcade.Text(
@@ -121,6 +135,22 @@ class GameView(arcade.View):
             arcade.color.WHITE,
             SCORE_TEXT_SIZE,
         )
+        self.power_text = arcade.Text(
+              "",
+              10,
+              self.window.height - 55,
+              arcade.color.YELLOW,
+              14,
+          )
+        self.chest_message_text = arcade.Text(
+            "",
+            self.window.width / 2,
+            self.window.height / 2 - 80,
+            arcade.color.ORANGE,
+            16,
+            anchor_x="center",
+        )
+        self._chest_message_timer: int = 0
         self.blobs = self.level.blobs
 
     def _restart(self) -> None:
@@ -168,6 +198,8 @@ class GameView(arcade.View):
             self.ices.draw()
             self.holes.draw()
             self.teleporters.draw()
+            self.keys.draw()
+            self.chests.draw()
             self.walls.draw()
             self.crystals.draw()
             self.spinners.draw()
@@ -187,12 +219,21 @@ class GameView(arcade.View):
             self.holes.draw_hit_boxes()
             self.bats.draw_hit_boxes()
             self.switches.draw_hit_boxes()
-            self.gates.draw_hit_boxes'''
+            self.gates.draw_hit_boxes()
+            self.keys.draw_hit_boxes()
+            self.chests.draw_hit_boxes()'''
 
         with self.camera_ui.activate():
             self.weapon_system.draw_active_weapon_icon(self.window.height)
             self.score_text.text = f"Score: {self.score}"
             self.score_text.draw()
+            power_name = self.power_system.active_power_name
+            if power_name is not None:
+                secs = self.power_system.remaining_frames // 60 + 1
+                self.power_text.text = f"Power: {power_name} ({secs}s)"
+                self.power_text.draw()
+            if self.chest_message_text.text:
+                self.chest_message_text.draw()
 
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         match symbol:
@@ -221,6 +262,7 @@ class GameView(arcade.View):
         context = EnemyUpdateContext(
             player=self.player,
             line_of_sight_walls=self.walls,
+            is_ghost_active=self.power_system.is_ghost_active
         )
 
         for enemy in self.level.enemies:
@@ -238,14 +280,18 @@ class GameView(arcade.View):
         self.player.update_physics(on_ice)
         if not self.weapon_system.sword_weapon.is_active():
             self.physics_engine.update()
-        self._update_enemies()
         self._update_gates()
+        self.power_system.update()
 
         self.player.update_animation()
         self.crystals.update_animation()
-        self.spinners.update_animation()
-        self.bats.update_animation()
-        self.blobs.update_animation()
+        if not self.power_system.is_frozen_active:
+            self._update_enemies()
+            self.spinners.update_animation()
+            self.bats.update_animation()
+            self.blobs.update_animation()
+        self.keys.update_animation()
+        self.chests.update_animation()
 
         self.weapon_system.update(self.player, delta_time)
 
@@ -262,6 +308,14 @@ class GameView(arcade.View):
             dest_x, dest_y = collision_result.teleport_destination
             self.player.center_x = dest_x
             self.player.center_y = dest_y
+
+        if collision_result.chest_message:
+            self.chest_message_text.text = collision_result.chest_message
+            self._chest_message_timer = 120
+        elif self._chest_message_timer > 0:
+            self._chest_message_timer -= 1
+            if self._chest_message_timer == 0:
+                self.chest_message_text.text = ""
 
         self.score += collision_result.score_delta
 

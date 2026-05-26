@@ -16,6 +16,7 @@ from enemies import Enemy, EnemyUpdateContext
 from map import Map
 from map_types import GridCell
 from navmesh import NodeType, find_path
+from power_system import PowerSystem
 
 
 Position = tuple[float, float]
@@ -79,7 +80,7 @@ class BlobEnemy(Enemy):
         previous_destination = self.destination
         visible_player_position = self._visible_player_position(context)
 
-        if visible_player_position is not None:
+        if visible_player_position is not None and not context.is_ghost_active:
             self.destination = visible_player_position
         elif self._has_arrived():
             self.destination = self._pick_new_destination()

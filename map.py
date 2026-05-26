@@ -9,6 +9,8 @@ from map_types import (
     SwitchConfig,
     GateConfig,
     TeleporterConfig,
+    KeyConfig,
+    ChestConfig,
     InvalidMapFileException,
 )
 from map_parser import (
@@ -18,6 +20,8 @@ from map_parser import (
     parse_switches,
     parse_gates,
     parse_teleporters,
+    parse_keys,
+    parse_chests,
     evaluate_formula,
     validate_formula,
 )
@@ -32,6 +36,8 @@ class Map:
     __switch_configs: Final[tuple[SwitchConfig, ...]]
     __gate_configs: Final[tuple[GateConfig, ...]]
     __teleporter_configs: Final[tuple[TeleporterConfig, ...]]
+    __key_configs: Final[tuple[KeyConfig, ...]]
+    __chest_configs: Final[tuple[ChestConfig, ...]]
 
     def __init__(
         self,
@@ -43,6 +49,8 @@ class Map:
         switch_configs: tuple[SwitchConfig, ...],
         gate_configs: tuple[GateConfig, ...],
         teleporter_configs: tuple[TeleporterConfig, ...] = (),
+        key_configs: tuple[KeyConfig, ...] = (),
+        chest_configs: tuple[ChestConfig, ...] = (),
     ) -> None:
         if width <= 0 or height <= 0:
             raise ValueError("width and height must be > 0")
@@ -61,6 +69,8 @@ class Map:
         self.__switch_configs = switch_configs
         self.__gate_configs = gate_configs
         self.__teleporter_configs = teleporter_configs
+        self.__key_configs = key_configs
+        self.__chest_configs = chest_configs
 
         self._validate_entity_positions()
 
@@ -136,6 +146,52 @@ class Map:
                         f"TELEPORTER cell at ({x},{y}) has no corresponding teleporter config"
                     )
 
+        key_positions: set[tuple[int, int]] = set()
+        for kc in self.__key_configs:
+            if not (0 <= kc.x < self.__width and 0 <= kc.y < self.__height):
+                raise InvalidMapFileException(
+                    f"key {kc.id!r} position ({kc.x},{kc.y}) is out of bounds"
+                )
+            if self.__grid[kc.y][kc.x] != GridCell.KEY:
+                raise InvalidMapFileException(
+                    f"key {kc.id!r} at ({kc.x},{kc.y}) does not point to a KEY cell"
+                )
+            pos = (kc.x, kc.y)
+            if pos in key_positions:
+                raise InvalidMapFileException(
+                    f"two keys share the same position ({kc.x},{kc.y})"
+                )
+            key_positions.add(pos)
+
+        chest_positions: set[tuple[int, int]] = set()
+        for cc in self.__chest_configs:
+            if not (0 <= cc.x < self.__width and 0 <= cc.y < self.__height):
+                raise InvalidMapFileException(
+                    f"chest {cc.id!r} position ({cc.x},{cc.y}) is out of bounds"
+                )
+            if self.__grid[cc.y][cc.x] != GridCell.CHEST:
+                raise InvalidMapFileException(
+                    f"chest {cc.id!r} at ({cc.x},{cc.y}) does not point to a CHEST cell"
+                )
+            pos = (cc.x, cc.y)
+            if pos in chest_positions:
+                raise InvalidMapFileException(
+                    f"two chests share the same position ({cc.x},{cc.y})"
+                )
+            chest_positions.add(pos)
+
+        for y in range(self.__height):
+            for x in range(self.__width):
+                cell = self.__grid[y][x]
+                if cell == GridCell.KEY and (x, y) not in key_positions:
+                    raise InvalidMapFileException(
+                        f"KEY cell at ({x},{y}) has no corresponding key config"
+                    )
+                if cell == GridCell.CHEST and (x, y) not in chest_positions:
+                    raise InvalidMapFileException(
+                        f"CHEST cell at ({x},{y}) has no corresponding chest config"
+                    )
+
     @property
     def width(self) -> int:
         return self.__width
@@ -164,6 +220,14 @@ class Map:
     def teleporter_configs(self) -> tuple[TeleporterConfig, ...]:
         return self.__teleporter_configs
 
+    @property
+    def key_configs(self) -> tuple[KeyConfig, ...]:
+        return self.__key_configs
+
+    @property
+    def chest_configs(self) -> tuple[ChestConfig, ...]:
+        return self.__chest_configs
+
     def get(self, x: int, y: int) -> GridCell:
         if not (0 <= x < self.__width and 0 <= y < self.__height):
             raise ValueError(f"cell ({x},{y}) is out of bounds")
@@ -186,6 +250,8 @@ class Map:
         switch_configs = parse_switches(header.switches_data)
         gate_configs = parse_gates(header.gates_data)
         teleporter_configs = parse_teleporters(header.teleporters_data)
+        key_configs = parse_keys(header.keys_data)
+        chest_configs = parse_chests(header.chests_data, {kc.id for kc in key_configs})
 
         known_ids = {sc.id for sc in switch_configs}
         for gc in gate_configs:
@@ -200,6 +266,8 @@ class Map:
             switch_configs=switch_configs,
             gate_configs=gate_configs,
             teleporter_configs=teleporter_configs,
+            key_configs=key_configs,
+            chest_configs=chest_configs,
         )
 
 

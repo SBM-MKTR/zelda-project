@@ -36,15 +36,31 @@ teleporters:
     x: 38
     y: 3
     target_id: "t1"
+keys:
+  - id: "k1"
+    x: 2
+    y: 9
+  - id: "k2"
+    x: 23
+    y: 12
+chests:
+  - id: "C1"
+    x: 5
+    y: 13
+    key_id: "k2"
+  - id: "C2"
+    x: 30
+    y: 7
+    key_id: "k1"
 ---
 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-x  *            gggS  T  x             x
-x         b     ggg      x    *   *    x
+x  * C          gggS  T  x             x
+x         b     ggg    k x    *   *    x
 x               ggg    * x  gggggggg   x
 x         s        xxxxxxx  gggggggg  sx
-x     xxx *   xx                       x
+x k   xxx *   xx                       x
 x                            xxx       x
-x^   |  v    xxxxxxxxxx        x       x
+x^   |  v    xxxxxxxxxx       Cx       x
 x       ^ *                    x   *   x
 x      S              S     *  x       x
 x  *       v    *              O       x

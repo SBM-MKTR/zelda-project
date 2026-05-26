@@ -155,3 +155,31 @@ TEXTURE_GATE_CLOSED: Final[arcade.Texture] = _portal_grid[13*7 + 8]
 TEXTURE_TELEPORTER: Final[arcade.Texture] = _overworld_grid[18*12 + 10]
 
 TEXTURE_ICE: Final[arcade.Texture] = _overworld_grid[18*11 + 17]
+
+ANIMATION_KEY: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0"
+        "/Props_Items_(animated)/key_item_anim_strip_6.png",
+        6,
+    )
+
+ANIMATION_CHEST: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0"
+        "/Props_Items_(animated)/lootchest_item_anim_strip_8.png",
+        8,
+    )
+
+ANIMATION_CHEST_OPEN: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0"
+        "/Props_Items_(animated)/lootchest_item_anim_opening_strip_5.png",
+        5,
+    )
+
+ANIMATION_CHEST_STAYS_OPEN: Final[arcade.TextureAnimation] = \
+    _load_animation_strip(
+        "assets/Top_Down_Adventure_Pack_v.1.0"
+        "/Props_Items_(animated)/lootchest_item_static_open.png",
+        1,
+    )
