@@ -1,5 +1,5 @@
 # Fichier design
-```mermaid
+
 classDiagram
 
 %% ─────────────────────────────
@@ -776,4 +776,61 @@ GameView --> EnemyUpdateContext
 
 LevelModule ..> Map
 Map --> LevelModule : données validées
-```
+
+
+
+## Performances
+
+Nous avons évalué les performances du jeu avec deux approches complémentaires : des benchmarks avec `timeit`, pour mesurer des temps moyens précis, et du profiling avec `cProfile` et SnakeViz, pour identifier les fonctions les plus coûteuses.
+
+### Benchmark de la boucle de jeu
+
+La boucle principale du jeu passe par `GameView.on_update`. À 60 FPS, une frame dispose d'un budget d'environ 16.67 ms. Nous avons donc mesuré le temps moyen d'un appel à `on_update` sur une carte représentative contenant les principaux systèmes du jeu.
+
+| Mesure | Valeur |
+|---|---:|
+| Temps moyen par appel à `on_update` | 0.9533 ms/frame |
+| Écart-type | 0.0172 ms/frame |
+| Budget pour 60 FPS | 16.6667 ms/frame |
+
+Le temps moyen mesuré représente environ 5.7 % du budget disponible pour une frame à 60 FPS. La boucle de mise à jour est donc largement assez rapide pour la carte actuelle.
+
+### Benchmark du navmesh et du pathfinding
+
+Les blobs utilisent un navmesh construit avec `BLOB_NAVMESH_SUBDIVISIONS = 3`. Nous avons mesuré séparément le coût de construction du navmesh et le coût d'un appel à `find_path`.
+
+| Map | Taille | Noeuds | Arêtes | `build_navmesh` moyen | `find_path` moyen |
+|---|---:|---:|---:|---:|---:|
+| map réelle | 40x15 | 3536 | 13250 | 21.94 ms | 4.74 ms |
+| small | 12x8 | 448 | 1662 | 2.82 ms | 0.57 ms |
+| medium | 30x20 | 4264 | 16656 | 26.81 ms | 5.96 ms |
+| large | 60x40 | 19264 | 76206 | 125.85 ms | 29.99 ms |
+
+La construction du navmesh peut devenir coûteuse sur de grandes cartes, mais elle est effectuée une seule fois au chargement du niveau. Elle n'affecte donc pas directement la fluidité pendant la partie.
+
+Le pathfinding est plus sensible, car il peut être appelé pendant le jeu. Sur la map réelle, `find_path` reste sous le budget d'une frame. Sur une grande map synthétique, il dépasse ce budget, ce qui montre que le pathfinding pourrait devenir critique si la taille des cartes ou le nombre de blobs augmentait fortement.
+
+### Profiling avec cProfile et SnakeViz
+
+Nous avons ensuite utilisé `cProfile` et SnakeViz pour identifier où le temps est passé dans `GameView.on_update`. Le profil a été réalisé sur 600 appels à `on_update`, après une courte phase de warmup.
+
+![Profil SnakeViz de GameView.on_update](./chemin/vers/ton_screen_snakeviz.png)
+
+Les résultats principaux sont les suivants :
+
+| Fonction | Temps cumulé |
+|---|---:|
+| `GameView.on_update` | 2.325 s |
+| `GameView._update_enemies` | 2.219 s |
+| `BlobEnemy.update` | 2.195 s |
+| `BlobEnemy._visible_player_position` | 2.125 s |
+| `arcade.has_line_of_sight` | 2.124 s |
+| `navmesh.find_path` | 0.063 s |
+
+Le profiling montre que le coût principal ne vient pas du pathfinding, mais de la détection de ligne de vue des blobs. Cette détection utilise `arcade.has_line_of_sight`, qui effectue de nombreux calculs géométriques internes.
+
+Même avec ce coût, les performances restent acceptables pour la carte actuelle. Une optimisation possible, si le projet devait supporter plus de blobs ou des cartes plus grandes, serait de ne tester la ligne de vue qu'une frame sur deux, ou seulement lorsque le joueur ou le blob a suffisamment bougé.
+
+### Conclusion
+
+Les mesures montrent que la boucle principale du jeu reste largement sous le budget nécessaire pour 60 FPS. Le navmesh est coûteux sur de grandes cartes, mais il est construit une seule fois au chargement. Le pathfinding reste raisonnable sur la carte réelle. Le principal point de coût identifié par SnakeViz est la ligne de vue des blobs, mais il ne nécessite pas d'optimisation immédiate dans l'état actuel du projet.
