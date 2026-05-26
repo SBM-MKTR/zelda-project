@@ -301,8 +301,6 @@ class GameView(arcade.View):
             self._restart()
             return
 
-        self.score += collision_result.score_delta
-
         if len(self.crystals) == 0:
             self._restart()
             return
