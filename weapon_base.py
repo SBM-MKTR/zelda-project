@@ -7,6 +7,24 @@ from player import Player
 
 SpriteT = TypeVar("SpriteT", bound=arcade.Sprite)
 
+def collect_new_collisions(
+    collider: arcade.Sprite,
+    sprite_list: arcade.SpriteList[SpriteT],
+    hit_sprite_ids: set[int],
+) -> list[SpriteT]:
+    new_collisions: list[SpriteT] = []
+
+    for sprite in arcade.check_for_collision_with_list(collider, sprite_list):
+        sprite_id = id(sprite)
+
+        if sprite_id in hit_sprite_ids:
+            continue
+
+        hit_sprite_ids.add(sprite_id)
+        new_collisions.append(sprite)
+
+    return new_collisions
+
 class Weapon(ABC):
     @abstractmethod
     def use(self, player: Player) -> None:

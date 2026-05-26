@@ -1,14 +1,12 @@
 from enum import Enum, auto
 from typing import Callable, Final
-
 import arcade
-
 from boomerang import Boomerang, BoomerangState
 from constants import WEAPON_ICON_SCALE, WEAPON_ICON_TOP_MARGIN, WEAPON_ICON_X
 from player import Player
 from sword import SwordWeapon
 from textures import ANIMATION_BOOMERANG, ANIMATION_SWORD_DOWN
-from weapon_base import SpriteT, Weapon
+from weapon_base import SpriteT, Weapon, collect_new_collisions
 
 
 class ActiveWeapon(Enum):
@@ -48,25 +46,15 @@ class BoomerangWeapon(Weapon):
     def is_launching(self) -> bool:
         return self.boomerang.state == BoomerangState.LAUNCHING
 
-    def check_collisions(
-        self,
-        sprite_list: arcade.SpriteList[SpriteT],
-    ) -> list[SpriteT]:
+    def check_collisions(self, sprite_list: arcade.SpriteList[SpriteT]) -> list[SpriteT]:
         if not self.is_active():
             return []
 
-        new_collisions: list[SpriteT] = []
-
-        for sprite in arcade.check_for_collision_with_list(self.boomerang, sprite_list):
-            sprite_id = id(sprite)
-
-            if sprite_id in self.hit_sprite_ids:
-                continue
-
-            self.hit_sprite_ids.add(sprite_id)
-            new_collisions.append(sprite)
-
-        return new_collisions
+        return collect_new_collisions(
+            self.boomerang,
+            sprite_list,
+            self.hit_sprite_ids,
+        )
 
     def on_hit(self) -> None:
         if self.is_launching():

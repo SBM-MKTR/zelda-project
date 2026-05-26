@@ -15,7 +15,7 @@ from textures import (
     ANIMATION_SWORD_RIGHT,
     ANIMATION_SWORD_UP,
 )
-from weapon_base import SpriteT, Weapon
+from weapon_base import SpriteT, Weapon, collect_new_collisions
 
 
 class SwordWeapon(Weapon):
@@ -72,25 +72,15 @@ class SwordWeapon(Weapon):
     def is_active(self) -> bool:
         return self.active
 
-    def check_collisions(
-        self,
-        sprite_list: arcade.SpriteList[SpriteT],
-    ) -> list[SpriteT]:
+    def check_collisions(self,sprite_list: arcade.SpriteList[SpriteT] ) -> list[SpriteT]:
         if not self.active:
             return []
 
-        new_collisions: list[SpriteT] = []
-
-        for sprite in arcade.check_for_collision_with_list(self.hitbox, sprite_list):
-            sprite_id = id(sprite)
-
-            if sprite_id in self.hit_sprite_ids:
-                continue
-
-            self.hit_sprite_ids.add(sprite_id)
-            new_collisions.append(sprite)
-
-        return new_collisions
+        return collect_new_collisions(
+            self.hitbox,
+            sprite_list,
+            self.hit_sprite_ids,
+        )
 
     def on_hit(self) -> None:
         pass
