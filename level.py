@@ -4,9 +4,10 @@ from constants import BAT_MOVEMENT_RADIUS, SCALE, SWITCH_SCALE, TILE_SIZE, BLOB_
 from enemies import BatEnemy, Enemy, SpinnerEnemy
 from gate_system import GateInfo, SwitchInfo
 from map import Map, bat_bounds, spinner_bounds
-from map_types import GridCell, TeleporterConfig
+from map_types import GridCell, TeleporterConfig, KeyConfig, ChestConfig
 from blob import BlobEnemy, build_possible_destinations
 from navmesh import build_navmesh
+from power_system import PowerSystem
 from textures import (
     ANIMATION_BAT,
     ANIMATION_CRYSTAL,
@@ -20,9 +21,13 @@ from textures import (
     TEXTURE_TELEPORTER,
     TEXTURE_ICE,
     ANIMATION_BLOB,
+    ANIMATION_KEY,
+    ANIMATION_CHEST,
 )
 
 TeleporterInfo = tuple[arcade.Sprite, TeleporterConfig]
+KeyInfo = tuple[arcade.TextureAnimationSprite, KeyConfig]
+ChestInfo = tuple[arcade.TextureAnimationSprite, ChestConfig]
 
 @dataclass
 class Level:
@@ -38,12 +43,16 @@ class Level:
     switches: arcade.SpriteList[arcade.Sprite]
     gates: arcade.SpriteList[arcade.Sprite]
     teleporters: arcade.SpriteList[arcade.Sprite]
+    keys: arcade.SpriteList[arcade.TextureAnimationSprite]
+    chests: arcade.SpriteList[arcade.TextureAnimationSprite]
     enemies: list[Enemy]
     switch_infos: list[SwitchInfo]
     gate_infos: list[GateInfo]
     teleporter_infos: list[TeleporterInfo]
     blobs: arcade.SpriteList[arcade.TextureAnimationSprite]
     enemy_sprites: arcade.SpriteList[arcade.TextureAnimationSprite]
+    key_infos: list[KeyInfo]
+    chest_infos: list[ChestInfo]
 
     def remove_enemy_sprite(self, sprite: arcade.TextureAnimationSprite) -> None:
         self.enemies = [
@@ -67,10 +76,14 @@ def build_level(game_map: Map) -> Level:
     switches: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     gates: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
     teleporters: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
+    keys: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
+    chests: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
     enemies: list[Enemy] = []
     switch_infos: list[SwitchInfo] = []
     gate_infos: list[GateInfo] = []
     teleporter_infos: list[TeleporterInfo] = []
+    key_infos: list[KeyInfo] = []
+    chest_infos: list[ChestInfo] = []
     blobs: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
     enemy_sprites: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
     navmesh = build_navmesh(game_map, BLOB_NAVMESH_SUBDIVISIONS)
@@ -86,6 +99,14 @@ def build_level(game_map: Map) -> Level:
     teleporter_configs_by_position = {
         (tp.x, tp.y): tp
         for tp in game_map.teleporter_configs
+    }
+    key_configs_by_position = {
+        (kc.x, kc.y): kc
+        for kc in game_map.key_configs
+    }
+    chest_configs_by_position = {
+        (cc.x, cc.y): cc
+        for cc in game_map.chest_configs
     }
 
     for y in range(game_map.height):
@@ -255,6 +276,32 @@ def build_level(game_map: Map) -> Level:
                     teleporters.append(tp_sprite)
                     teleporter_infos.append((tp_sprite, tp_config))
 
+                case GridCell.KEY:
+                    key_config = key_configs_by_position[(x, y)]
+
+                    key_sprite = arcade.TextureAnimationSprite(
+                        animation=ANIMATION_KEY,
+                        scale=SCALE,
+                        center_x=center_x,
+                        center_y=center_y,
+                    )
+
+                    keys.append(key_sprite)
+                    key_infos.append((key_sprite, key_config))
+
+                case GridCell.CHEST:
+                    chest_config = chest_configs_by_position[(x, y)]
+
+                    chest_sprite = arcade.TextureAnimationSprite(
+                        animation=ANIMATION_CHEST,
+                        scale=SCALE,
+                        center_x=center_x,
+                        center_y=center_y,
+                    )
+
+                    chests.append(chest_sprite)
+                    chest_infos.append((chest_sprite, chest_config))
+
     return Level(
         world_width=game_map.width * TILE_SIZE,
         world_height=game_map.height * TILE_SIZE,
@@ -268,10 +315,14 @@ def build_level(game_map: Map) -> Level:
         switches=switches,
         gates=gates,
         teleporters=teleporters,
+        keys=keys,
+        chests=chests,
         enemies=enemies,
         switch_infos=switch_infos,
         gate_infos=gate_infos,
         teleporter_infos=teleporter_infos,
+        key_infos=key_infos,
+        chest_infos=chest_infos,
         blobs=blobs,
         enemy_sprites=enemy_sprites,
     )

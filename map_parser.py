@@ -8,6 +8,8 @@ from map_types import (
     SwitchConfig,
     GateConfig,
     TeleporterConfig,
+    KeyConfig,
+    ChestConfig,
     ParsedHeader,
 )
 
@@ -40,6 +42,8 @@ def parse_header(lines: list[str]) -> ParsedHeader:
     switches = _optional_list(config, "switches")
     gates = _optional_list(config, "gates")
     teleporters = _optional_list(config, "teleporters")
+    keys = _optional_list(config, "keys")
+    chests = _optional_list(config, "chests")
 
     return ParsedHeader(
         width=width,
@@ -47,6 +51,8 @@ def parse_header(lines: list[str]) -> ParsedHeader:
         switches_data=switches,
         gates_data=gates,
         teleporters_data=teleporters,
+        keys_data=keys,
+        chests_data=chests,
         map_start_index=separator_index + 1,
     )
 
@@ -152,6 +158,10 @@ def _cell_from_char(char: str) -> GridCell:
             return GridCell.GATE
         case "T":
             return GridCell.TELEPORTER
+        case "k":
+            return GridCell.KEY
+        case "C":
+            return GridCell.CHEST
         case "g":
             return GridCell.ICE
         case _:
@@ -251,6 +261,61 @@ def parse_teleporters(data: list) -> tuple[TeleporterConfig, ...]:
             )
 
     return tuple(result)
+
+
+def parse_keys(data: list) -> tuple[KeyConfig, ...]:
+    result: list[KeyConfig] = []
+    seen_ids: set[str] = set()
+
+    for item in data:
+        match item:
+            case {
+                "id": str(key_id),
+                "x": int(x),
+                "y": int(y),
+            } if not isinstance(x, bool) and not isinstance(y, bool):
+                pass
+            case _:
+                raise InvalidMapFileException(f"invalid key entry: {item!r}")
+
+        if key_id in seen_ids:
+            raise InvalidMapFileException(f"duplicate key id: {key_id!r}")
+        seen_ids.add(key_id)
+
+        result.append(KeyConfig(id=key_id, x=x, y=y))
+
+    return tuple(result)
+
+
+def parse_chests(data: list, known_key_ids: set[str]) -> tuple[ChestConfig, ...]:
+    result: list[ChestConfig] = []
+    seen_ids: set[str] = set()
+
+    for item in data:
+        match item:
+            case {
+                "id": str(chest_id),
+                "x": int(x),
+                "y": int(y),
+                "key_id": str(key_id),
+            } if not isinstance(x, bool) and not isinstance(y, bool):
+                pass
+            case _:
+                raise InvalidMapFileException(f"invalid chest entry: {item!r}")
+
+        if chest_id in seen_ids:
+            raise InvalidMapFileException(f"duplicate chest id: {chest_id!r}")
+        seen_ids.add(chest_id)
+
+        if key_id not in known_key_ids:
+            raise InvalidMapFileException(
+                f"chest {chest_id!r} references unknown key id: {key_id!r}"
+            )
+
+        result.append(ChestConfig(id=chest_id, x=x, y=y, key_id=key_id))
+
+    return tuple(result)
+
 
 def validate_formula(formula: object, known_ids: set[str], _depth: int = 0) -> None:
     """Valide récursivement la structure complète d'une formule logique au chargement.

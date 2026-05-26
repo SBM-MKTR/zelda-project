@@ -19,6 +19,9 @@ class GridCell(Enum):
     SWITCH = "switch"
     GATE = "gate"
     TELEPORTER = "teleporter"
+    KEY = "key"
+    CHEST = "chest"
+    PLAYER_START = "player_start"
     ICE = "ice"
 
 
@@ -61,10 +64,27 @@ class TeleporterConfig:
 
 
 @dataclass(frozen=True)
+class KeyConfig:
+    id: str
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
+class ChestConfig:
+    id: str
+    x: int
+    y: int
+    key_id: str
+
+
+@dataclass(frozen=True)
 class ParsedHeader:
     width: int
     height: int
     switches_data: list
     gates_data: list
     teleporters_data: list
+    keys_data: list
+    chests_data: list
     map_start_index: int

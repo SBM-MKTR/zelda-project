@@ -14,6 +14,7 @@ from player import Player
 class EnemyUpdateContext:
     player: Player
     line_of_sight_walls: arcade.SpriteList[arcade.Sprite]
+    is_ghost_active: bool = False
 
 
 class Enemy(ABC):

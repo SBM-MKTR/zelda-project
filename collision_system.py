@@ -1,13 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import arcade
 
 from constants import HOLE_DEATH_RADIUS
 from gate_system import GateSystem
-from level import Level, TeleporterInfo
+from level import Level, TeleporterInfo, ChestInfo, KeyInfo
 from player import Player
 from weapon_base import Weapon
 from weapon_system import WeaponSystem
+from textures import ANIMATION_CHEST_OPEN, ANIMATION_CHEST_STAYS_OPEN
+from power_system import PowerSystem
+from constants import SCALE
 
 
 @dataclass(frozen=True)
@@ -15,6 +18,7 @@ class CollisionResult:
     should_restart: bool = False
     score_delta: int = 0
     teleport_destination: tuple[float, float] | None = None
+    chest_message: str | None = None
 
 
 @dataclass
@@ -24,7 +28,10 @@ class CollisionSystem:
     weapon_system: WeaponSystem
     gate_system: GateSystem
     crystals_sound: arcade.Sound
+    power_system: PowerSystem
     _teleport_cooldown: int = 0
+    _collected_key_ids: set[str] = field(default_factory=set, init=False)
+    _opening_chests: set[arcade.TextureAnimationSprite] = field(default_factory=set, init=False)
 
     def update(self) -> CollisionResult:
         if self._player_falls_in_hole():
@@ -36,8 +43,10 @@ class CollisionSystem:
         self._handle_weapon_enemy_hits()
         self._handle_weapon_switch_hits()
         self._handle_weapon_obstacle_hits()
+        self._handle_key_pickups()
+        self._update_opening_chests()
 
-        if self._player_touches_enemy():
+        if self._player_touches_enemy() and (not self.power_system.is_ghost_active and not self.power_system.is_frozen_active):
             return CollisionResult(should_restart=True, score_delta=score_delta)
 
         if self._teleport_cooldown > 0:
@@ -47,7 +56,9 @@ class CollisionSystem:
         if teleport_dest is not None:
             return CollisionResult(score_delta=score_delta, teleport_destination=teleport_dest)
 
-        return CollisionResult(score_delta=score_delta)
+        chest_message = self._handle_chest_openings()
+
+        return CollisionResult(score_delta=score_delta, chest_message=chest_message)
 
     def _player_touches_enemy(self) -> bool:
         return bool(
@@ -121,6 +132,43 @@ class CollisionSystem:
             self.level.walls,
         ):
             weapon.on_hit()
+
+    def _handle_key_pickups(self) -> None:
+        for key_sprite, key_config in list(self.level.key_infos):
+            if not arcade.check_for_collision(self.player, key_sprite):
+                continue
+
+            self._collected_key_ids.add(key_config.id)
+            key_sprite.remove_from_sprite_lists()
+            self.level.key_infos.remove((key_sprite, key_config))
+
+    def _handle_chest_openings(self) -> str | None:
+        for chest_sprite, chest_config in list(self.level.chest_infos):
+            if not arcade.check_for_collision(self.player, chest_sprite):
+                continue
+
+            if not self._collected_key_ids:
+                return "You need a key to open this chest !"
+
+            if chest_config.key_id not in self._collected_key_ids:
+                return "Wrong key for this chest !"
+
+            chest_sprite.animation = ANIMATION_CHEST_OPEN
+            self._opening_chests.add(chest_sprite)
+            self.level.chest_infos.remove((chest_sprite, chest_config))
+            self._collected_key_ids.discard(chest_config.key_id)
+            self.power_system.activate_random_power()
+
+        return None
+
+    def _update_opening_chests(self) -> None:
+        for chest_sprite in list(self._opening_chests):
+            frames = len(ANIMATION_CHEST_OPEN.keyframes)
+            duration = ANIMATION_CHEST_OPEN.keyframes[0].duration  # ms par frame
+            total_ms = frames * duration
+            if chest_sprite.time * 1000 >= total_ms:
+                chest_sprite.animation = ANIMATION_CHEST_STAYS_OPEN
+                self._opening_chests.discard(chest_sprite)
 
     def _check_teleportation(self) -> tuple[float, float] | None:
         """Returns the pixel destination if the player steps on a teleporter, else None."""
