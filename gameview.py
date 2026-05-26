@@ -300,9 +300,12 @@ class GameView(arcade.View):
         if collision_result.should_restart :
             self._restart()
             return
+
+        self.score += collision_result.score_delta
+
         if len(self.crystals) == 0:
-            self.score += 1
             self._restart()
+            return
 
         if collision_result.teleport_destination is not None:
             dest_x, dest_y = collision_result.teleport_destination
