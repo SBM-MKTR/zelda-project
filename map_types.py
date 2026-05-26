@@ -19,7 +19,6 @@ class GridCell(Enum):
     SWITCH = "switch"
     GATE = "gate"
     TELEPORTER = "teleporter"
-    PLAYER_START = "player_start"
     ICE = "ice"
 
 
