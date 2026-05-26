@@ -292,14 +292,14 @@ class GameView(arcade.View):
             self.blobs.update_animation()
         self.keys.update_animation()
         self.chests.update_animation()
-
         self.weapon_system.update(self.player, delta_time)
-
         collision_result = self.collision_system.update()
 
         if collision_result.should_restart :
             self._restart()
             return
+
+        self.score += collision_result.score_delta
 
         if len(self.crystals) == 0:
             self._restart()
@@ -317,7 +317,5 @@ class GameView(arcade.View):
             self._chest_message_timer -= 1
             if self._chest_message_timer == 0:
                 self.chest_message_text.text = ""
-
-        self.score += collision_result.score_delta
 
         self.camera_controller.update(self.window.width, self.window.height)
