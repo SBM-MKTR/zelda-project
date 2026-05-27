@@ -3,9 +3,9 @@
 ## Progression
 * [x] Créer le LOG.md  1
 * [x] S'inscrire en binôme  1
-* [x] Découverte d'Arcade  120
-* [x] Meilleure gestion du clavier  30
-* [x] Meilleure gestion de la caméra  45
+* [x] Découverte d'Arcade  180
+* [x] Meilleure gestion du clavier 60
+* [x] Meilleure gestion de la caméra  60
 * [x] Bruitages  15
 * [x] Structure de données pour la map  60
 * [x] Charger la map depuis un fichier  90
@@ -18,12 +18,12 @@
 * [x] Chauve-souris  180
 * [x] Epée  150
 * [x] Refactoring  240
-* [x] Blobs  240
-* [x] Interrupteurs/portails  210
-* [x] Performances  ??
-* [x] Extension1  ??
-* [x] Extension2 ??
-* [x] Refactoring, améliorations et finalisation  240
+* [x] Blobs  300
+* [x] Interrupteurs/portails  240
+* [x] Performances  240
+* [x] Extension1  240
+* [x] Extension2 240
+* [x] Refactoring, améliorations et finalisation  600
 
 
 ## Suivi

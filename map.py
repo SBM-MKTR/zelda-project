@@ -192,6 +192,31 @@ class Map:
                         f"CHEST cell at ({x},{y}) has no corresponding chest config"
                     )
 
+        '''for y in range(self.__height):
+            for x in range(self.__width):
+                cell = self.__grid[x][y]
+                match cell:
+                    case GridCell.SWITCH if (x, y) not in switch_positions:
+                        raise InvalidMapFileException(
+                            f"SWITCH cell at ({x},{y}) has no corresponding switch config"
+                        )
+                    case GridCell.GATE if (x, y) not in gate_positions:
+                        raise InvalidMapFileException(
+                            f"GATE cell at ({x},{y}) has no corresponding gate config"
+                        )
+                    case GridCell.TELEPORTER if (x, y) not in teleporter_positions:
+                        raise InvalidMapFileException(
+                            f"TELEPORTER cell at ({x},{y}) has no corresponding teleporter config"
+                        )
+                    case GridCell.KEY if (x, y) not in key_positions:
+                        raise InvalidMapFileException(
+                            f"KEY cell at ({x},{y}) has no corresponding key config"
+                        )
+                    case GridCell.CHEST if (x, y) not in chest_positions:
+                        raise InvalidMapFileException(
+                            f"CHEST cell at ({x},{y}) has no corresponding chest config"
+                        )'''
+
     @property
     def width(self) -> int:
         return self.__width
