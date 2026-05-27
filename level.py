@@ -66,15 +66,15 @@ def grid_to_pixels(i: int) -> int:
 
 
 def build_level(game_map: Map) -> Level:
-    grounds: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
+    grounds: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     walls: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     ices: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     crystals: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
     spinners: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
-    holes: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
+    holes: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     bats: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=False)
     switches: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
-    gates: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=False)
+    gates: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     teleporters: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     keys: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
     chests: arcade.SpriteList[arcade.TextureAnimationSprite] = arcade.SpriteList(use_spatial_hash=True)
