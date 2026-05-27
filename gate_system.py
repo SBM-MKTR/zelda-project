@@ -27,8 +27,6 @@ class GateSystem:
     )
 
     def __post_init__(self) -> None:
-        # Initialise l'état logique depuis la texture initiale (définie dans level.py).
-        # Après cela, la texture est une conséquence de l'état, non plus sa source.
         self._switch_state_map = {
             sprite: sprite.texture == TEXTURE_SWITCH_ON
             for sprite, _ in self.switch_infos

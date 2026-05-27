@@ -1,7 +1,5 @@
 from typing import Final
-
 import arcade
-
 from camera_controller import CameraController
 from collision_system import CollisionSystem
 from constants import (
@@ -18,13 +16,9 @@ from player import Direction, Player
 from boomerang import Boomerang
 from weapon_system import WeaponSystem
 from sounds import CRYSTALS_SOUND
-from gameoverview import GameOverView
-from gamewinview import GameWinView
-
+from endgameview import GameWinView, GameOverView
 from enemies import EnemyUpdateContext
-
 from power_system import PowerSystem
-
 
 
 class GameView(arcade.View):
@@ -61,14 +55,12 @@ class GameView(arcade.View):
     weapon_system: Final[WeaponSystem]
     blobs: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     power_system: Final[PowerSystem]
+    _chest_message_timer: int
 
     def __init__(self, map: Map) -> None:
-        # Magical incantion: initialize the Arcade view
         super().__init__()
 
         self.__map = map
-
-        # Choose a nice comfy background color
         self.background_color = arcade.csscolor.CORNFLOWER_BLUE
 
         self.level = build_level(map)
@@ -115,10 +107,7 @@ class GameView(arcade.View):
             world_height=self.world_height,
         )
         self.crystals_sound = CRYSTALS_SOUND
-        self.power_system = PowerSystem(
-            player=self.player,
-            enemies=self.level.enemies,
-        )
+        self.power_system = PowerSystem(player=self.player,enemies=self.level.enemies)
         self.collision_system = CollisionSystem(
             level=self.level,
             player=self.player,
@@ -156,7 +145,7 @@ class GameView(arcade.View):
     def _restart(self) -> None:
         """Réinitialise le jeu en créant une nouvelle instance de GameView"""
         if len(self.crystals) == 0:
-            self.window.show_view(GameWinView(self.__map, self.score))
+            self.window.show_view(GameWinView(self.__map,self.score,))
         else:
             self.window.show_view(GameOverView(self.__map, self.score))
 
@@ -176,9 +165,6 @@ class GameView(arcade.View):
 
     def on_show_view(self) -> None:
         """Called automatically by 'window.show_view(game_view)' in main.py."""
-        # When we show the view, adjust the window's size to our world size.
-        # If the world size is smaller than the maximum window size, we should
-        # limit the size of the window.
         self.window.width = min(MAX_WINDOW_WIDTH, self.world_width)
         self.window.height = min(MAX_WINDOW_HEIGHT, self.world_height)
         self.score_text.y = self.window.height - SCORE_TEXT_TOP_MARGIN
@@ -192,7 +178,7 @@ class GameView(arcade.View):
         - World camera: ground, holes, walls, crystals, spinners, player, boomerang and bats
         - UI camera: score display (fixed to screen, independent of world movement)
         """
-        self.clear() # always start with self.clear()
+        self.clear()
         with self.camera.activate():
             self.grounds.draw()
             self.ices.draw()
@@ -210,18 +196,6 @@ class GameView(arcade.View):
                 self.player_list.draw()
             self.weapon_system.draw()
             self.bats.draw()
-            # Hit boxes (debug)
-            '''self.walls.draw_hit_boxes()
-            self.teleporters.draw_hit_boxes()
-            self.crystals.draw_hit_boxes()
-            self.spinners.draw_hit_boxes()
-            self.player_list.draw_hit_boxes()
-            self.holes.draw_hit_boxes()
-            self.bats.draw_hit_boxes()
-            self.switches.draw_hit_boxes()
-            self.gates.draw_hit_boxes()
-            self.keys.draw_hit_boxes()
-            self.chests.draw_hit_boxes()'''
 
         with self.camera_ui.activate():
             self.weapon_system.draw_active_weapon_icon(self.window.height)
@@ -268,9 +242,6 @@ class GameView(arcade.View):
         for enemy in self.level.enemies:
             enemy.update(context)
 
-    def _update_gates(self) -> None:
-        self.gate_system.update()
-
     def on_update(self, delta_time: float) -> None:
         """Called once per frame, before drawing.
 
@@ -280,7 +251,7 @@ class GameView(arcade.View):
         self.player.update_physics(on_ice)
         if not self.weapon_system.sword_weapon.is_active():
             self.physics_engine.update()
-        self._update_gates()
+        self.gate_system.update()
         self.power_system.update()
 
         self.player.update_animation()

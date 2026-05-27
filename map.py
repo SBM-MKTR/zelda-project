@@ -110,18 +110,6 @@ class Map:
                 )
             gate_positions.add(pos)
 
-        for y in range(self.__height):
-            for x in range(self.__width):
-                cell = self.__grid[y][x]
-                if cell == GridCell.SWITCH and (x, y) not in switch_positions:
-                    raise InvalidMapFileException(
-                        f"SWITCH cell at ({x},{y}) has no corresponding switch config"
-                    )
-                if cell == GridCell.GATE and (x, y) not in gate_positions:
-                    raise InvalidMapFileException(
-                        f"GATE cell at ({x},{y}) has no corresponding gate config"
-                    )
-
         teleporter_positions: set[tuple[int, int]] = set()
         for tc in self.__teleporter_configs:
             if not (0 <= tc.x < self.__width and 0 <= tc.y < self.__height):
@@ -138,13 +126,6 @@ class Map:
                     f"two teleporters share the same position ({tc.x},{tc.y})"
                 )
             teleporter_positions.add(pos)
-
-        for y in range(self.__height):
-            for x in range(self.__width):
-                if self.__grid[y][x] == GridCell.TELEPORTER and (x, y) not in teleporter_positions:
-                    raise InvalidMapFileException(
-                        f"TELEPORTER cell at ({x},{y}) has no corresponding teleporter config"
-                    )
 
         key_positions: set[tuple[int, int]] = set()
         for kc in self.__key_configs:
@@ -183,18 +164,6 @@ class Map:
         for y in range(self.__height):
             for x in range(self.__width):
                 cell = self.__grid[y][x]
-                if cell == GridCell.KEY and (x, y) not in key_positions:
-                    raise InvalidMapFileException(
-                        f"KEY cell at ({x},{y}) has no corresponding key config"
-                    )
-                if cell == GridCell.CHEST and (x, y) not in chest_positions:
-                    raise InvalidMapFileException(
-                        f"CHEST cell at ({x},{y}) has no corresponding chest config"
-                    )
-
-        '''for y in range(self.__height):
-            for x in range(self.__width):
-                cell = self.__grid[x][y]
                 match cell:
                     case GridCell.SWITCH if (x, y) not in switch_positions:
                         raise InvalidMapFileException(
@@ -215,7 +184,9 @@ class Map:
                     case GridCell.CHEST if (x, y) not in chest_positions:
                         raise InvalidMapFileException(
                             f"CHEST cell at ({x},{y}) has no corresponding chest config"
-                        )'''
+                        )
+                    case _:
+                        continue
 
     @property
     def width(self) -> int:

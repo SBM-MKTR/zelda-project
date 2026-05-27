@@ -20,10 +20,10 @@ class Boomerang(arcade.TextureAnimationSprite):
         )
 
         self.state = BoomerangState.INACTIVE
-        self.start_x = 0
-        self.start_y = 0
-        self.dir_x = 0
-        self.dir_y = 0
+        self.start_x = 0.0
+        self.start_y = 0.0
+        self.dir_x = 0.0
+        self.dir_y = 0.0
 
     def launch(self, player: Player) -> None:
         if self.state != BoomerangState.INACTIVE:

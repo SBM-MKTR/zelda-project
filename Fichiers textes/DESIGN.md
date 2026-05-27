@@ -777,11 +777,247 @@ GameView --> EnemyUpdateContext
 LevelModule ..> Map
 Map --> LevelModule : données validées
 
+# DESIGN.md
+
+## Modules et classes
+
+### `map_types.py`
+
+Contient uniquement des types de données : enums et dataclasses. Il est entièrement découplé d'Arcade.
+
+- **`GridCell`** (Enum) : représente chaque type de cellule possible sur la grille (`GRASS`, `BUSH`, `CRYSTAL`, `BLOB`, `GATE`, etc.). L'usage d'un `Enum` garantit que seules les valeurs valides existent, et permet le pattern matching exhaustif.
+- **Dataclasses** (`SwitchConfig`, `GateConfig`, `TeleporterConfig`, `KeyConfig`, `ChestConfig`, `ParsedHeader`) : structures de données immuables qui transportent la configuration lue depuis le fichier de carte.
+- **`InvalidMapFileException`** : exception pour signaler une carte invalide au moment du chargement.
+
+**Méthodologies** : Séparation entre données et comportement. Les dataclasses `frozen=True` garantissent l'**immutabilité** des configurations après chargement. L'`Enum` pour `GridCell` évite les chaînes de caractères magiques et rend le code plus sûr.
+
+---
+
+### `map_parser.py` — Parsing et validation
+
+Responsable de transformer un fichier texte en structures de données Python. Utilise `ruamel.yaml` pour la section YAML (pour les interrupteurs, portails, téléporteurs, clés et coffres) et parcourt les lignes de la carte caractère par caractère.
+
+Fonctions :
+- `parse_header` : extrait les métadonnées YAML (dimensions, listes d'entités).
+- `build_grid` : construit la grille de cellules à partir des caractères de la carte.
+- `parse_switches / parse_gates / parse_teleporters / parse_keys / parse_chests` : valident et convertissent chaque liste d'entités.
+- `validate_formula / evaluate_formula` : gèrent les formules logiques récursives (`and`, `or`, `not`, `switch_is_on`) pour les conditions d'ouverture des portails.
+
+**Méthodologies** : Les erreurs sont signalées au chargement avec `InvalidMapFileException`, pas à l'exécution. La récursion bornée (`_depth <= 10`) dans `validate_formula` protège contre les formules infiniment imbriquées. Ce module est entièrement indépendant d'Arcade, ce qui le rend testable sans fenêtre graphique.
+
+---
+
+### `map.py` — Représentation immuable de la carte
+
+La classe `Map` est la représentation immuable de la carte chargée. Elle stocke la grille, la position de départ du joueur, et toutes les configurations d'entités.
+
+**Encapsulation** : tous les attributs sont privés et exposés uniquement en lecture via des `@property`. Rien à l'extérieur ne peut modifier une `Map` après sa construction.
+
+**Validation** : la méthode `_validate_entity_positions` vérifie la cohérence entre la grille et les configurations : chaque cellule spéciale a bien une config, et vice versa. Cette vérification se fait à la construction, pas à l'usage.
+
+**Méthodes de fabrique** : `Map.from_file` et `Map.from_string` permettent de construire une `Map` depuis un fichier ou une chaîne. Cela découple la construction de la représentation et facilite les tests (on peut passer une string directement).
+
+Fonctions utilitaires associées :
+- `spinner_bounds` : calcule les bornes de déplacement d'un spinner en parcourant la grille — indépendamment d'Arcade, donc testable.
+- `bat_bounds` : calcule le centre et le rayon de la zone d'une chauve-souris.
+
+**Méthodologies** : **Encapsulation** stricte (attributs privés, interface publique minimale). **Immutabilité** : la carte ne change jamais après chargement, ce qui simplifie le raisonnement sur l'état du jeu. **Méthodes de fabrique** pour découpler construction et représentation.
+
+---
+
+### `level.py` — Construction du monde graphique
+
+La fonction `build_level` transforme un `Map` (données abstraites) en un `Level` (sprites Arcade prêts à être affichés). Elle itère sur chaque cellule de la grille et crée les sprites correspondants, ainsi que les objets logiques associés (ennemis, navmesh, etc.).
+
+La dataclass `Level` regroupe toutes les `SpriteList` et listes d'objets du monde. Elle expose `remove_enemy_sprite` pour retirer un ennemi tué sans casser les références croisées.
+
+**Méthodologies** : Séparation entre **données** (`Map`) et **représentation graphique** (`Level`). La construction est isolée dans une fonction dédiée `build_level`, ce qui permet de réinitialiser le jeu en recréant simplement un `Level` à partir du même `Map` immuable.
+
+---
+
+### `enemies.py` — Hiérarchie des ennemis (utilisation de polymorphisme)
+
+Définit une abstractmethod commune pour tous les ennemis.
+
+- **`Enemy`** : classe abstraite avec une seule méthode `update`.
+- **`EnemyUpdateContext`** (dataclass frozen) : regroupe les informations nécessaires à la mise à jour d'un ennemi (joueur, murs pour la ligne de vue, état du pouvoir fantôme). C'est un objet de contexte passé à chaque `update`, ce qui évite de passer de nombreux paramètres séparés.
+- **`SpinnerEnemy`** et **`BatEnemy`**  : héritent toutes deux de **`Enemy`** et implémentent `update`, ainsi que leurs méthodes respectives
 
 
-## Performances
+**Méthodologies** : **Polymorphisme** via la classe abstraite `Enemy`. Le `GameView` appelle `enemy.update(context)` sur tous les ennemis sans distinguer leurs types. Il est donc possible d'ajouter un nouveau type d'ennemi sans modifier `GameView`.
 
-Nous avons évalué les performances du jeu avec deux approches complémentaires : des benchmarks avec `timeit`, pour mesurer des temps moyens précis, et du profiling avec `cProfile` et SnakeViz, pour identifier les fonctions les plus coûteuses.
+**Question de design (semaine 4 — Chauves-souris)** : Comment gérez-vous le fait que vous avez maintenant deux types de monstres, avec des comportements différents ?
+
+Réponse : via la classe abstraite `Enemy` et le polymorphisme. Chaque type d'ennemi implémente `update` à sa façon. Ajouter un troisième monstre (le blob) n'a nécessité aucune modification de `GameView` : il suffisait de créer une nouvelle classe qui hérite de `Enemy`.
+
+---
+
+### `blob.py` — Ennemi blob (pathfinding)
+
+`BlobEnemy` est un ennemi qui navigue intelligemment sur la carte grâce au navmesh.
+
+- Patrouille aléatoirement parmi une liste de destinations possibles (`build_possible_destinations`), calculée une fois pour toutes au chargement à partir de la `Map`.
+- Si le joueur est visible (ligne de vue non bloquée via `arcade.has_line_of_sight`, distance max de 5 tiles), le blob le prend pour destination.
+- Utilise `find_path` (Dijkstra via NetworkX) pour calculer un chemin sur le navmesh, puis avance waypoint par waypoint.
+
+**Méthodologies** : Séparation entre **comportement** (`BlobEnemy.update`) et **infrastructure de navigation** (`navmesh.py`). Le blob ne connaît pas les détails du graphe, il délègue à `find_path`. Les destinations possibles sont précalculées, conformément à la consigne de ne calculer que ce qui ne change pas au chargement.
+
+**Question de design (semaine 6 — Blobs)** :
+
+*Qu'avez-vous choisi comme type de nœud `TypeNoeud` ?*
+
+On utilise `tuple[int, int]` (alias `NodeType`). Un nœud est identifié par ses indices `(ix, iy)` dans la grille de sous-nœuds. C'est hashable (nécessaire pour NetworkX et les `set`), léger, et naturellement ordonnable. La position pixel est calculée à la demande via `_node_pixel_position(ix, iy, n)`.
+
+*À quel niveau traitez-vous la construction du navmesh ?*
+
+Le navmesh est construit dans `level.py` au moment de `build_level`, puis passé à chaque `BlobEnemy` à la construction. Il est partagé (le même graphe NetworkX est réutilisé par tous les blobs), ce qui évite de le reconstruire plusieurs fois. Il n'est pas stocké dans `Map` car c'est une structure graphique dépendant d'Arcade (via `TILE_SIZE`), pas une donnée abstraite de carte.
+
+*Pouvez-vous tester la construction du navmesh sans Arcade ?*
+
+Oui. `build_navmesh` ne dépend que de `Map` et de constantes numériques, pas d'objets Arcade graphiques. On peut donc construire une `Map` depuis une string et appeler `build_navmesh` dans un test pytest ordinaire.
+
+---
+
+### `navmesh.py` — Navigation sur la carte
+
+Construit un graphe de navigation (`networkx.Graph`) pour permettre aux blobs de trouver un chemin évitant les obstacles.
+
+- `build_navmesh(game_map, n)` : subdivise chaque cellule en `n×n` sous-nœuds (avec `n` impair), élimine ceux à moins d'une distance `s` du centre d'un buisson, et connecte les nœuds voisins (8-connexité) avec un poids euclidien.
+- `nearest_node` : trouve le nœud du graphe le plus proche d'une position pixel.
+- `find_path` : utilise `nx.dijkstra_path` pour trouver le chemin optimal entre deux positions.
+
+**Méthodologies** : Module à responsabilité unique. Le choix de NetworkX illustre la **réutilisation de bibliothèques** pour des algorithmes complexes (Dijkstra) plutôt que de les réimplémenter.
+
+**Question de design (semaine 6)** : *Si vous avez n×n nœuds par cellule et une carte de taille m×m, quelle est la complexité ?*
+
+- Construction du navmesh : `O(m² · n²)` nœuds à créer et connecter.
+- Recherche de plus court chemin (Dijkstra avec tas binaire) : `O((V + E) · log V)` où `V = m² · n²` et `E ≈ 8V` (8-connexité), donc `O(m² · n² · log(m · n))`.
+- `nearest_node` : `O(V) = O(m² · n²)` — c'est le facteur dominant à chaque frame pour chaque blob.
+
+---
+
+### `gate_system.py` — Interrupteurs et portails
+
+`GateSystem` gère la logique des interrupteurs (on/off) et des portails (ouverts/fermés selon une formule logique).
+
+- Maintient un dictionnaire `_switch_state_map` comme état interne (sprite → booléen).
+- `toggle_switch` : inverse l'état d'un interrupteur et met à jour sa texture.
+- `update` : réévalue tous les portails à chaque frame selon leurs formules (`evaluate_formula` de `map_parser`).
+- `_set_gate_open` : synchronise la texture et l'appartenance aux listes `walls` / `gates`.
+
+**Question de design (semaine 6)** : *Quelle structure de données utilisez-vous pour représenter les conditions d'ouverture des portails ?*
+
+Les formules sont représentées comme des `dict` imbriqués, directement tels que parsés depuis le YAML. C'est une structure récursive naturelle pour représenter un arbre d'expression logique. `evaluate_formula` parcourt cet arbre récursivement par pattern matching. Cette approche évite de définir une hiérarchie de classes pour les nœuds d'arbre, ce qui aurait été plus lourd pour un usage aussi simple.
+
+*S'il y a n interrupteurs et m portails, quelle est la complexité à chaque frame ?*
+
+Avec des formules simples (`switch_is_on` uniquement) : `O(m)`, on évalue une formule en `O(1)` par portail. Avec des formules composées de profondeur `d` : `O(m · d)`. La validation à la construction garantit que `d ≤ 10`.
+
+**Méthodologies** : **Encapsulation** de l'état des interrupteurs. La logique de formule est déléguée à `map_parser.evaluate_formula` (séparation des responsabilités). L'usage d'un `dict` comme clé dans `_switch_state_map` permet une lookup en `O(1)` grâce au hachage.
+
+---
+
+### `collision_system.py` — Détection des collisions
+
+`CollisionSystem` centralise toute la logique de collision en un seul endroit, séparant la détection de la réaction.
+
+- Retourne un `CollisionResult` (dataclass frozen) décrivant ce qui s'est passé : faut-il redémarrer ? Combien de points ? Téléportation ? Message de coffre ?
+- Gère : chute dans les trous, collecte de cristaux, hits d'ennemis/interrupteurs/obstacles par les armes, ramassage de clés, ouverture de coffres, téléportation.
+
+**Méthodologies** : Retour d'un objet résultat immuable plutôt que des effets de bord directs. `CollisionResult` décrit ce qui doit changer, c'est le `GameView` qui applique les changements. Ce découplage simplifie les tests et la lisibilité. L'usage de `use_spatial_hash=True` sur les `SpriteList` statiques (murs, trous, cristaux) rend les vérifications de collision en `O(1)` plutôt qu'en `O(n)`.
+
+---
+
+### `player.py` — Le joueur
+
+`Player` hérite de `arcade.TextureAnimationSprite` et gère les entrées clavier, la physique et l'animation.
+
+- Maintient l'état des touches pressées en attributs privés (`__right_pressed`, etc.).
+- `update_physics(on_ice)` : implémente un système de vitesse avec friction différente selon la surface. Sur glace : accélération lente et haute inertie (`ICE_FRICTION = 0.03`). Sur sol : réponse instantanée (`GROUND_FRICTION = 1.0`).
+- `__update_direction_and_animation` : met à jour la direction et l'animation selon les touches actives, en appliquant les règles de priorité définies dans les consignes (bas > haut > gauche > droite).
+
+**Question de design (semaine 3 — Direction)** : *Comment définissez-vous le type `Direction`, et pourquoi ?*
+
+`Direction` est un `Enum` avec `auto()`. Un `Enum` est préférable à des constantes entières ou des chaînes car : les valeurs valides sont bornées à la compilation, le pattern matching est exhaustif, et le code est auto-documenté.
+
+*Ces méthodes reçoivent-elles un `symbol: int` ou un type plus spécifique ?*
+
+Les méthodes publiques de `Player` reçoivent un `Direction`, pas un `int`. La conversion `symbol → Direction` est faite dans `GameView._direction_from_key` avant d'appeler `player.press_direction(direction)`. Ainsi, `Player` ne dépend pas du système de touches d'Arcade — il est plus facile à tester et plus réutilisable.
+
+**Méthodologies** : Encapsulation des états internes. Séparation des responsabilités : `Player` gère la physique et l'animation, `GameView` gère la traduction des touches en directions.
+
+---
+
+### `weapon_base.py` et `weapon_system.py` — Armes (polymorphisme)
+
+- **`Weapon`** (ABC) : interface commune pour toutes les armes (`use`, `update`, `draw`, `is_active`, `check_collisions`, `on_hit`). Des méthodes optionnelles avec valeurs par défaut (`can_hit_enemies`, `can_toggle_switches`, `can_collect_crystals`, `can_hit_obstacles`) permettent à chaque arme de déclarer ses capacités sans forcer toutes les sous-classes à tout implémenter.
+- **`SwordWeapon`** : Active pendant la durée de l'animation.
+- **`BoomerangWeapon`** / **`Boomerang`** : L'état est géré par `BoomerangState` (Enum).
+- **`WeaponSystem`** : gère le choix de l'arme active, dispatche les appels `update`/`draw`, et centralise la vérification des collisions selon les capacités de chaque arme.
+
+**Question de design (semaine 3 — Boomerang)** : *Avez-vous défini une classe séparée pour le boomerang ?*
+
+Oui. `Boomerang` hérite de `arcade.TextureAnimationSprite` pour bénéficier de l'animation et de la position dans le monde. `BoomerangWeapon` implémente `Weapon` et délègue à `Boomerang` pour les aspects graphiques. Cette séparation permet de tester la logique de `Boomerang` indépendamment du système d'armes.
+
+*Comment gérez-vous les 3 états du boomerang ?*
+
+Via `BoomerangState` (Enum : `INACTIVE`, `LAUNCHING`, `RETURNING`). L'Enum est préférable à des booléens ou des entiers car les états sont mutuellement exclusifs et nommés.
+
+**Question de design (semaine 4 — Épée)** : *Comment gérez-vous le fait que vous avez maintenant deux types d'armes ? Pourriez-vous ajouter une troisième arme ?*
+
+`WeaponSystem` contient un tuple de `Weapon`. Ajouter une troisième arme requiert seulement d'implémenter `Weapon` et de l'ajouter à ce tuple — sans modifier la logique de collision ou de dessin. Les méthodes `can_*` permettent une sélection déclarative des comportements sans `isinstance`.
+
+**Méthodologies** : Polymorphisme. Ouvert à l'extension (nouvelles armes), fermé à la modification (pas besoin de changer `WeaponSystem`).
+
+---
+
+### `power_system.py` — Pouvoirs (pattern Stratégie)
+
+- **`Power`** (ABC) : interface avec `on_activate`, `on_deactivate`, et `name`.
+- **`GhostPower`** : rend le joueur semi-transparent (`alpha = 100`) et invincible aux ennemis.
+- **`FreezePower`** : gèle tous les ennemis (leur `update` n'est plus appelé).
+- **`PowerSystem`** : active un pouvoir aléatoire lors de l'ouverture d'un coffre, compte les frames restantes, et désactive le pouvoir à expiration.
+
+**Méthodologies** : Chaque pouvoir est un objet interchangeable avec la même interface. `PowerSystem` ne connaît que `Power`, pas les sous-classes. Ajouter un pouvoir ne nécessite pas de modifier `PowerSystem`.
+
+---
+
+### `camera_controller.py` — Caméra
+
+`CameraController` suit le joueur avec une marge (`margin_x`, `margin_y`) : la caméra ne bouge que si le joueur s'approche du bord de la zone visible. Elle est également clampée pour ne jamais montrer l'extérieur du monde.
+
+**Méthodologies** : Responsabilité unique. La logique de caméra est entièrement isolée dans ce module, testable sans Arcade.
+
+---
+
+### Vues (`gameview.py`, `endgameview.py`)
+
+- **`GameView`** : vue principale. Orchestre tous les systèmes, gère les entrées clavier, et délègue le rendu et la logique à chaque sous-système. Utilise deux caméras : une pour le monde (qui suit le joueur), une pour l'UI (fixe).
+- `GameOverView` et `GameWinView` : vues simples affichant le résultat et permettant de relancer une partie.
+
+**Méthodologies** : Le `GameView` joue le rôle de contrôleur : il coordonne sans implémenter. La double caméra (monde + UI) permet d'afficher le score à une position fixe à l'écran indépendamment du déplacement du monde. Classe parent `EndGameView` dont `GameOverView` et `GameWinView` héritent.
+
+---
+
+## Analyse des performances
+
+Complexité algorithmique — Chargement d'une map
+Facteur choisi : taille de la carte, exprimée en nombre de cellules m = width × height, avec n×n nœuds par cellule dans le navmesh.
+Le chargement d'une map comprend deux grandes étapes : le parsing du fichier (géré par map_parser.py) et la construction du monde (build_level dans level.py). Le parsing est clairement O(m) : on parcourt chaque ligne et chaque caractère exactement une fois. Ce n'est pas l'étape intéressante.
+L'étape dominante est la construction du navmesh dans build_navmesh. On crée jusqu'à m · n² nœuds candidats. Pour chacun, on vérifie s'il est trop proche d'un buisson en inspectant les 9 cellules voisines, ce qui est O(1). On connecte ensuite chaque nœud retenu à ses 8 voisins potentiels dans la grille de sous-nœuds, encore O(1) par nœud. La construction du graphe est donc O(m · n²).
+La création des sprites dans build_level itère sur les m cellules de la carte pour créer les sprites correspondants : c'est O(m), largement dominé par la construction du navmesh dès que n > 1.
+Le choix de n = 3 (valeur de BLOB_NAVMESH_SUBDIVISIONS) multiplie le nombre de nœuds par 9 par rapport à n = 1. C'est un compromis délibéré : un navmesh plus fin donne des trajectoires plus naturelles pour les blobs (ils ne collent plus aux murs en diagonale), au prix d'un chargement plus long.
+La validation des entités de la carte (_validate_entity_positions dans map.py) est aussi O(m) grâce à l'usage de set pour stocker les positions vues : la vérification d'appartenance est O(1) au lieu de O(m) avec une liste. Sans ce choix, la validation serait O(m²).
+En résumé, la complexité du chargement est dominée par O(m · n²), avec m la taille de la carte en cellules et n le nombre de subdivisions par côté de cellule.
+
+Complexité algorithmique — on_update
+Facteur choisi : nombre de nœuds dans le navmesh, V = m · n², qui dépend de la taille de la carte et des subdivisions.
+À chaque frame, on_update appelle successivement la physique du joueur, la mise à jour des ennemis, et la détection des collisions. Analysons les parties non triviales.
+La mise à jour de chaque blob dans BlobEnemy.update peut déclencher un appel à _refresh_path, qui appelle find_path. Celui-ci contient deux étapes coûteuses. D'abord, nearest_node parcourt tous les nœuds du graphe pour trouver le plus proche : c'est O(V). Ensuite, nx.dijkstra_path exécute l'algorithme de Dijkstra avec un tas binaire : O((V + E) · log V) avec E ≈ 8V (8-connexité), soit O(V · log V). La recherche de chemin domine donc, avec O(V · log V) par blob et par frame où le chemin est recalculé.
+En pratique, le chemin n'est recalculé que lorsque la destination change (arrivée à destination, ou détection du joueur). Cela limite les recalculs, mais dans le pire cas (blob qui suit le joueur en mouvement), le recalcul a lieu à chaque frame.
+La détection des collisions dans CollisionSystem est le point le plus intéressant. Les SpriteList statiques (murs, trous, cristaux, interrupteurs) sont construites avec use_spatial_hash=True. Grâce au hachage spatial, arcade.check_for_collision_with_list est O(1) au lieu de O(n) avec n le nombre de sprites dans la liste. C'est un gain critique : sans spatial hash, tester la collision du joueur avec tous les murs serait linéaire en la taille de la carte. En revanche, les SpriteList d'ennemis et du boomerang utilisent use_spatial_hash=False car ils bougent à chaque frame — recalculer le hash à chaque mouvement coûterait plus cher que le gain.
+La mise à jour des portes dans GateSystem est O(p · d) avec p le nombre de portes et d la profondeur maximale des formules (bornée à 10 par validation). Le lookup des états d'interrupteurs se fait via un dict, donc en O(1). Pour le nombre de portes et d'interrupteurs typique d'une carte, cette étape est négligeable.
+Au total, la complexité d'un on_update est dominée par O(k · V · log V) avec k le nombre de blobs et V = m · n² le nombre de nœuds du navmesh.
 
 ### Benchmark de la boucle de jeu
 
@@ -813,8 +1049,6 @@ Le pathfinding est plus sensible, car il peut être appelé pendant le jeu. Sur 
 ### Profiling avec cProfile et SnakeViz
 
 Nous avons ensuite utilisé `cProfile` et SnakeViz pour identifier où le temps est passé dans `GameView.on_update`. Le profil a été réalisé sur 600 appels à `on_update`, après une courte phase de warmup.
-
-![Profil SnakeViz de GameView.on_update](./chemin/vers/ton_screen_snakeviz.png)
 
 Les résultats principaux sont les suivants :
 
