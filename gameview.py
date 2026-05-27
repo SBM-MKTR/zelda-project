@@ -10,7 +10,6 @@ from constants import (
     SCORE_TEXT_X,
 )
 from gate_system import GateSystem
-#iudvbiqdfvbizdb
 from level import Level, build_level, grid_to_pixels
 from map import Map
 from player import Direction, Player
@@ -291,5 +290,3 @@ class GameView(arcade.View):
                 self.chest_message_text.text = ""
 
         self.camera_controller.update(self.window.width, self.window.height)
-
-#co
