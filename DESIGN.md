@@ -1,5 +1,5 @@
 # Fichier design
-## Code de notre diagramme Mermaid qui représente l'architecture de montre projet, explication textuelle en dessous
+## Code de notre diagramme Mermaid qui représente l'architecture de notre projet, explication textuelle en dessous
 
 ```mermaid
 classDiagram
@@ -721,13 +721,52 @@ La validation des entités de la carte (_validate_entity_positions dans map.py) 
 En résumé, la complexité du chargement est dominée par O(m · n²), avec m la taille de la carte en cellules et n le nombre de subdivisions par côté de cellule.
 
 Complexité algorithmique de on_update
-Facteur choisi : nombre de nœuds dans le navmesh, V = m · n², qui dépend de la taille de la carte et des subdivisions.
+Facteur choisi : le nombre de blobs k présents sur la carte. On raisonne à carte fixe, donc à nombre de nœuds de navmesh V = m · n² constant.
 À chaque frame, on_update appelle successivement la physique du joueur, la mise à jour des ennemis, et la détection des collisions. Analysons les parties non triviales.
 La mise à jour de chaque blob dans BlobEnemy.update peut déclencher un appel à _refresh_path, qui appelle find_path. Celui-ci contient deux étapes coûteuses. D'abord, nearest_node parcourt tous les nœuds du graphe pour trouver le plus proche : c'est O(V). Ensuite, nx.dijkstra_path exécute l'algorithme de Dijkstra avec un tas binaire : O((V + E) · log V) avec E ≈ 8V (8-connexité), soit O(V · log V). La recherche de chemin domine donc, avec O(V · log V) par blob et par frame où le chemin est recalculé.
-En pratique, le chemin n'est recalculé que lorsque la destination change (arrivée à destination, ou détection du joueur). Cela limite les recalculs, mais dans le pire cas (blob qui suit le joueur en mouvement), le recalcul a lieu à chaque frame.
+En pratique, le chemin n'est recalculé que lorsque la destination change (arrivée à destination, ou détection du joueur). Cela limite les recalculs, mais dans le pire cas (blob qui suit le joueur en mouvement), le recalcul a lieu à chaque frame. Le terme O(V · log V) est donc un coût de pire cas. À l'inverse, has_line_of_sight est appelée à chaque frame pour chaque blob : bien que bornée par max_distance (donc indépendante de V), son coût constant élevé domine le temps réellement mesuré, comme le confirme le profiling plus bas. Dans les deux cas, à carte fixe, le coût par blob ne dépend pas de k, d'où une complexité linéaire en k.
 La détection des collisions dans CollisionSystem est le point le plus intéressant. Les SpriteList statiques (murs, trous, cristaux, interrupteurs) sont construites avec use_spatial_hash=True. Grâce au hachage spatial, arcade.check_for_collision_with_list est O(1) au lieu de O(n) avec n le nombre de sprites dans la liste. C'est un gain critique : sans spatial hash, tester la collision du joueur avec tous les murs serait linéaire en la taille de la carte. En revanche, les SpriteList d'ennemis et du boomerang utilisent use_spatial_hash=False car ils bougent à chaque frame et recalculer le hash à chaque mouvement coûterait plus cher que le gain.
 La mise à jour des portes dans GateSystem est O(p · d) avec p le nombre de portes et d la profondeur maximale des formules (bornée à 20 par validation). Le lookup des états d'interrupteurs se fait via un dict, donc en O(1). Pour le nombre de portes et d'interrupteurs typique d'une carte, cette étape est négligeable.
-Au total, la complexité d'un on_update est dominée par O(k · V · log V) avec k le nombre de blobs et V = m · n² le nombre de nœuds du navmesh.
+Au total, la complexité d'un on_update est dominée par O(k · V · log V) avec k le nombre de blobs et V = m · n² le nombre de nœuds du navmesh. À carte fixe (V constant), cette complexité est donc linéaire en k, ce que confirment les mesures ci-dessous.
+
+### Benchmarks sur plusieurs ordres de grandeur
+
+Conformément à la consigne, nous avons généré **programmatiquement** des cartes en faisant varier chacun des deux facteurs choisis sur plusieurs ordres de grandeur (script `benchmark_performance.py`), et nous avons appelé `on_update` manuellement, sans `window.test()`. Chaque point est une médiane (chargement) ou une moyenne (on_update) de plusieurs répétitions. Les deux graphes sont en échelle log-log : une complexité linéaire y apparaît comme une droite de pente ≈ 1.
+
+#### Graphe 1 — Chargement vs taille de carte
+
+Cartes carrées entièrement ouvertes, de m = 25 à 12 100 cellules, navmesh à n = 3.
+
+![Temps de chargement en fonction de la taille de carte](benchmarks/chargement.png)
+
+| m (cellules) | V (nœuds navmesh) | Chargement |
+|---:|---:|---:|
+| 25 | 49 | 6.9 ms |
+| 144 | 784 | 23.4 ms |
+| 676 | 4 900 | 103 ms |
+| 3 025 | 24 649 | 536 ms |
+| 12 100 | 103 684 | 2 290 ms |
+
+La courbe mesurée est parallèle à la référence O(m) : entre m = 144 et m = 6 400 (×44), le temps passe de 23.4 ms à 1 099 ms (×47), soit une pente log-log d'environ 0.99. L'adéquation avec la théorie O(m · n²) — linéaire en m à n fixé — est donc bonne. Aux petites tailles, un coût fixe d'environ 7 ms (atlas de textures, création des `SpriteList`, fenêtre) domine, ce qui explique la légère sur-élévation de la courbe à gauche. Le facteur n² du navmesh n'apparaît pas comme une pente sur ce graphe puisque n est constant ; il se traduit seulement par le décalage vertical (V ≈ 9 m).
+
+#### Graphe 2 — on_update vs nombre de blobs
+
+Carte fixe de 34 × 34, de k = 1 à 1000 blobs, joueur immobile.
+
+![Temps de on_update en fonction du nombre de blobs](benchmarks/on_update.png)
+
+| k (blobs) | on_update |
+|---:|---:|
+| 1 | 6.7 ms |
+| 5 | 17.5 ms |
+| 50 | 92.3 ms |
+| 100 | 147.7 ms |
+| 500 | 522.4 ms |
+| 1000 | 1204.2 ms |
+
+Le coût par blob est essentiellement constant : le terme marginal vaut (1204.2 − 92.3)/(1000 − 50) ≈ 1.17 ms/blob, et le rapport temps/k se stabilise autour de 1.1–1.2 ms pour les grands k. Le terme dépendant de k est donc bien **linéaire**, conforme à la complexité O(k · V · log V) à carte fixe. La pente log-log apparente (≈ 0.8, légèrement inférieure à 1) s'explique uniquement par un coût fixe additif par frame, indépendant de k (physique du joueur, animations, collisions de base) : il domine aux petits k puis devient négligeable, si bien que la courbe devient parallèle à la référence O(k) pour les grandes valeurs. Comme le montre le profiling plus bas, ce coût par blob est dominé par `has_line_of_sight`, borné par `max_distance`, ce qui explique qu'il soit quasi identique d'un blob à l'autre.
+
+On observe que, dès ~5 blobs sur cette carte synthétique, `on_update` dépasse le budget de 16.67 ms d'une frame à 60 FPS. Ce n'est pas un problème pour le jeu réel, qui ne contient qu'une poignée de blobs (`on_update` y reste autour de 1 ms, cf. ci-dessous), mais cela confirme que la ligne de vue des blobs serait le premier poste à optimiser pour supporter des nuées d'ennemis (voir la piste d'optimisation en conclusion).
 
 ### Benchmark de la boucle de jeu
 
