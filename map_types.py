@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 
 class InvalidMapFileException(Exception):
+    """Exception raised when a map file is malformed or does not respect structural constraints."""
     pass
 
 
@@ -79,6 +80,8 @@ class ChestConfig:
 
 @dataclass(frozen=True)
 class ParsedHeader:
+    """Intermediate result of parsing the YAML header: dimensions, raw entity lists,
+    and the line index where the grid starts."""
     width: int
     height: int
     switches_data: list

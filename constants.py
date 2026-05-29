@@ -1,3 +1,5 @@
+#Speeds are in pixels per frame
+
 WINDOW_TITLE = "Adventure"
 """Title of the main window."""
 
@@ -8,10 +10,8 @@ TILE_SIZE = 32
 """After scaling, the size of a tile."""
 
 PLAYER_MOVEMENT_SPEED = 4
-"""Speed of the player, in pixels per frame."""
 
 SPINNER_MOVEMENT_SPEED = 3
-"""Speed of the spinners, in pixels per frame."""
 
 MAX_WINDOW_WIDTH = 14 * TILE_SIZE
 MAX_WINDOW_HEIGHT = 14 * TILE_SIZE
@@ -50,3 +50,5 @@ ICE_MAX_SPEED = 2
 
 POWER_DURATION_FRAMES = 420
 GHOST_ALPHA = 100
+
+MAX_FORMULA_DEPTH = 20

@@ -14,7 +14,7 @@ from constants import POWER_DURATION_FRAMES, GHOST_ALPHA
 
 
 class Power(ABC):
-    """Base class for all powers."""
+    """Parent class for all powers."""
 
     @abstractmethod
     def on_activate(self, player: Player, enemies: list[Enemy]) -> None:
@@ -59,6 +59,9 @@ ALL_POWERS: list[type[Power]] = [GhostPower, FreezePower]
 
 @dataclass
 class PowerSystem:
+    """Manages temporary powers:
+    activates one at a time, counts down frames,
+    and deactivates when countdown is over."""
     player: Player
     enemies: list[Enemy]
     _active_power: Power | None = None

@@ -1,7 +1,7 @@
 from ruamel.yaml import YAML
 from ruamel.yaml.constructor import DuplicateKeyError
 from ruamel.yaml.error import YAMLError
-
+from constants import MAX_FORMULA_DEPTH
 from map_types import (
     InvalidMapFileException,
     GridCell,
@@ -15,6 +15,15 @@ from map_types import (
 
 
 def parse_header(lines: list[str]) -> ParsedHeader:
+    """Parses the YAML block before the first '---' separator.
+
+    Extracts width, height, and the optional entity lists
+    (switches, gates, teleporters, keys, chests).
+    Also records map_start_index, the line index where the grid starts.
+
+    Raises InvalidMapFileException if the file is empty, the separator is missing,
+    the YAML is invalid, or width/height are not strictly positive integers.
+    """
     if not lines:
         raise InvalidMapFileException("empty map file")
 
@@ -103,6 +112,8 @@ def parse_map_rows(lines: list[str], map_start_index: int, height: int) -> list[
 def build_grid(
     raw_map_rows: list[str], width: int, height: int
 ) -> tuple[int, int, list[list[GridCell]]]:
+    """Converts raw character rows into a 2D GridCell grid and locates the player start.
+    Returns (start_x, start_y, grid)."""
     grid = [
         [GridCell.GRASS for _ in range(width)]
         for _ in range(height)
@@ -116,7 +127,8 @@ def build_grid(
                 f"map row too long: expected at most {width} characters, got {len(raw_row)}"
             )
 
-        y = height - 1 - visual_row_index
+        y = height - 1 - visual_row_index # Map rows are stored the other way: row 0 in the file is the top of the map, so here we change to make y start from the bottom
+
 
         for x, char in enumerate(raw_row):
             if char == "P":
@@ -318,13 +330,14 @@ def parse_chests(data: list, known_key_ids: set[str]) -> tuple[ChestConfig, ...]
 
 
 def validate_formula(formula: object, known_ids: set[str], _depth: int = 0) -> None:
-    """Valide récursivement la structure complète d'une formule logique au chargement.
-
-    Vérifie : type dict, clé unique, opérateur connu, nombre exact d'opérandes,
-    ids de switches existants, et profondeur maximale.
+    """Recursively validate the complete structure of a logical formula upon loading.
+    Check: dict type, unique key, known operator, exact number of operands,
+    existing switch IDs, and maximum depth.
     """
-    if _depth > 10:
-        raise InvalidMapFileException("formula nesting exceeds maximum depth (10)")
+    if _depth > MAX_FORMULA_DEPTH:
+        raise InvalidMapFileException(
+            f"formula nesting exceeds maximum depth ({MAX_FORMULA_DEPTH})"
+        )
 
     if not isinstance(formula, dict) or len(formula) != 1:
         raise InvalidMapFileException(
@@ -377,8 +390,15 @@ def validate_formula(formula: object, known_ids: set[str], _depth: int = 0) -> N
 def evaluate_formula(
     formula: object, switch_states: dict[str, bool], _depth: int = 0
 ) -> bool:
-    if _depth > 10:
-        raise InvalidMapFileException("formula nesting exceeds maximum depth (10)")
+    """Recursively evaluates a logical formula.
+    It has switch_is_on (leaf), not (unary), and/or (binary).
+    Mirrors the structure validated by validate_formula.
+    Raises InvalidMapFileException if the formula structure is invalid,
+    or if nesting exceeds maximum depth."""
+    if _depth > MAX_FORMULA_DEPTH:
+        raise InvalidMapFileException(
+            f"formula nesting exceeds maximum depth ({MAX_FORMULA_DEPTH})"
+        )
     match formula:
         case {"switch_is_on": str(switch_id)}:
             return switch_states[switch_id]

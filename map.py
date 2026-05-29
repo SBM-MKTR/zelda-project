@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Final
 
@@ -22,12 +23,13 @@ from map_parser import (
     parse_teleporters,
     parse_keys,
     parse_chests,
-    evaluate_formula,
     validate_formula,
 )
 
 
 class Map:
+    """Parsed and validated game map: grid of cells, player start position,
+    and entity configs (switches, gates, teleporters, keys, chests)."""
     __width: Final[int]
     __height: Final[int]
     __player_start_x: Final[int]
@@ -75,96 +77,59 @@ class Map:
         self._validate_entity_positions()
 
 
+    def _validate_entity_group(
+        self,
+        configs: tuple[SwitchConfig | GateConfig | TeleporterConfig | KeyConfig | ChestConfig, ...],
+        expected_cell: GridCell,
+        entity_name: str,
+    ) -> set[tuple[int, int]]:
+        """Validates a group of entities: boundaries, cell type, unique positions.
+        Returns the set of validated positions.
+        """
+        seen: set[tuple[int, int]] = set()
+        for config in configs:
+            x, y = config.x, config.y
+            entity_id = getattr(config, "id", None)
+            label = f"{entity_name} {entity_id!r}" if entity_id is not None else entity_name
+
+            if not (0 <= x < self.__width and 0 <= y < self.__height):
+                raise InvalidMapFileException(
+                    f"{label} position ({x},{y}) is out of bounds"
+                )
+            if self.__grid[y][x] != expected_cell:
+                raise InvalidMapFileException(
+                    f"{label} at ({x},{y}) does not point to a {expected_cell.name} cell"
+                )
+            pos = (x, y)
+            if pos in seen:
+                raise InvalidMapFileException(
+                    f"two {entity_name}s share the same position ({x},{y})"
+                )
+            seen.add(pos)
+        return seen
+
     def _validate_entity_positions(self) -> None:
-        switch_positions: set[tuple[int, int]] = set()
-        for sc in self.__switch_configs:
-            if not (0 <= sc.x < self.__width and 0 <= sc.y < self.__height):
-                raise InvalidMapFileException(
-                    f"switch '{sc.id}' position ({sc.x},{sc.y}) is out of bounds"
-                )
-            if self.__grid[sc.y][sc.x] != GridCell.SWITCH:
-                raise InvalidMapFileException(
-                    f"switch '{sc.id}' at ({sc.x},{sc.y}) does not point to a SWITCH cell"
-                )
-            pos = (sc.x, sc.y)
-            if pos in switch_positions:
-                raise InvalidMapFileException(
-                    f"two switches share the same position ({sc.x},{sc.y})"
-                )
-            switch_positions.add(pos)
+        """Checks that every config must point to the correct cell type,
+        and every special cell must have a matching config.
+        Raises InvalidMapFileException if any mismatch is found."""
+        switch_positions = self._validate_entity_group(
+            self.__switch_configs, GridCell.SWITCH, "switch"
+        )
+        gate_positions = self._validate_entity_group(
+            self.__gate_configs, GridCell.GATE, "gate"
+        )
+        teleporter_positions = self._validate_entity_group(
+            self.__teleporter_configs, GridCell.TELEPORTER, "teleporter"
+        )
+        key_positions = self._validate_entity_group(
+            self.__key_configs, GridCell.KEY, "key"
+        )
+        chest_positions = self._validate_entity_group(
+            self.__chest_configs, GridCell.CHEST, "chest"
+        )
 
-        gate_positions: set[tuple[int, int]] = set()
-        for gc in self.__gate_configs:
-            if not (0 <= gc.x < self.__width and 0 <= gc.y < self.__height):
-                raise InvalidMapFileException(
-                    f"gate position ({gc.x},{gc.y}) is out of bounds"
-                )
-            if self.__grid[gc.y][gc.x] != GridCell.GATE:
-                raise InvalidMapFileException(
-                    f"gate at ({gc.x},{gc.y}) does not point to a GATE cell"
-                )
-            pos = (gc.x, gc.y)
-            if pos in gate_positions:
-                raise InvalidMapFileException(
-                    f"two gates share the same position ({gc.x},{gc.y})"
-                )
-            gate_positions.add(pos)
-
-        teleporter_positions: set[tuple[int, int]] = set()
-        for tc in self.__teleporter_configs:
-            if not (0 <= tc.x < self.__width and 0 <= tc.y < self.__height):
-                raise InvalidMapFileException(
-                    f"teleporter {tc.id!r} position ({tc.x},{tc.y}) is out of bounds"
-                )
-            if self.__grid[tc.y][tc.x] != GridCell.TELEPORTER:
-                raise InvalidMapFileException(
-                    f"teleporter {tc.id!r} at ({tc.x},{tc.y}) does not point to a TELEPORTER cell"
-                )
-            pos = (tc.x, tc.y)
-            if pos in teleporter_positions:
-                raise InvalidMapFileException(
-                    f"two teleporters share the same position ({tc.x},{tc.y})"
-                )
-            teleporter_positions.add(pos)
-
-        key_positions: set[tuple[int, int]] = set()
-        for kc in self.__key_configs:
-            if not (0 <= kc.x < self.__width and 0 <= kc.y < self.__height):
-                raise InvalidMapFileException(
-                    f"key {kc.id!r} position ({kc.x},{kc.y}) is out of bounds"
-                )
-            if self.__grid[kc.y][kc.x] != GridCell.KEY:
-                raise InvalidMapFileException(
-                    f"key {kc.id!r} at ({kc.x},{kc.y}) does not point to a KEY cell"
-                )
-            pos = (kc.x, kc.y)
-            if pos in key_positions:
-                raise InvalidMapFileException(
-                    f"two keys share the same position ({kc.x},{kc.y})"
-                )
-            key_positions.add(pos)
-
-        chest_positions: set[tuple[int, int]] = set()
-        for cc in self.__chest_configs:
-            if not (0 <= cc.x < self.__width and 0 <= cc.y < self.__height):
-                raise InvalidMapFileException(
-                    f"chest {cc.id!r} position ({cc.x},{cc.y}) is out of bounds"
-                )
-            if self.__grid[cc.y][cc.x] != GridCell.CHEST:
-                raise InvalidMapFileException(
-                    f"chest {cc.id!r} at ({cc.x},{cc.y}) does not point to a CHEST cell"
-                )
-            pos = (cc.x, cc.y)
-            if pos in chest_positions:
-                raise InvalidMapFileException(
-                    f"two chests share the same position ({cc.x},{cc.y})"
-                )
-            chest_positions.add(pos)
-
-        for y in range(self.__height):
-            for x in range(self.__width):
-                cell = self.__grid[y][x]
-                match cell:
+        for x, y, cell in self.cells():
+            match cell:
                     case GridCell.SWITCH if (x, y) not in switch_positions:
                         raise InvalidMapFileException(
                             f"SWITCH cell at ({x},{y}) has no corresponding switch config"
@@ -187,6 +152,12 @@ class Map:
                         )
                     case _:
                         continue
+
+    def cells(self) -> Iterator[tuple[int, int, GridCell]]:
+        """Yields (x, y, cell) for every cell in the map, row by row."""
+        for y in range(self.__height):
+            for x in range(self.__width):
+                yield x, y, self.__grid[y][x]
 
     @property
     def width(self) -> int:
@@ -235,6 +206,8 @@ class Map:
 
     @classmethod
     def from_string(cls, text: str) -> "Map":
+        """Parses a full map text (YAML header + grid body)
+        and returns a validated Map."""
         lines = text.rstrip("\n").splitlines()
 
         header = parse_header(lines)

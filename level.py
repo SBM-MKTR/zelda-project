@@ -7,7 +7,6 @@ from map import Map, bat_bounds, spinner_bounds
 from map_types import GridCell, TeleporterConfig, KeyConfig, ChestConfig
 from blob import BlobEnemy, build_possible_destinations
 from navmesh import build_navmesh
-from power_system import PowerSystem
 from textures import (
     ANIMATION_BAT,
     ANIMATION_CRYSTAL,
@@ -31,6 +30,7 @@ ChestInfo = tuple[arcade.TextureAnimationSprite, ChestConfig]
 
 @dataclass
 class Level:
+    """All sprite lists and entity configs built from a Map."""
     world_width: int
     world_height: int
     grounds: arcade.SpriteList[arcade.Sprite]
@@ -65,7 +65,30 @@ def grid_to_pixels(i: int) -> int:
     return i * TILE_SIZE + TILE_SIZE // 2
 
 
+def _make_sprite(
+    texture: arcade.Texture,
+    center_x: int,
+    center_y: int,
+    scale: float = SCALE,
+) -> arcade.Sprite:
+    return arcade.Sprite(texture, scale=scale, center_x=center_x, center_y=center_y)
+
+
+def _make_anim_sprite(
+    animation: arcade.TextureAnimation,
+    center_x: int,
+    center_y: int,
+) -> arcade.TextureAnimationSprite:
+    return arcade.TextureAnimationSprite(
+        animation=animation,
+        scale=SCALE,
+        center_x=center_x,
+        center_y=center_y,
+    )
+
+
 def build_level(game_map: Map) -> Level:
+    '''Builds (return) a Level based off a given Map'''
     grounds: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     walls: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
     ices: arcade.SpriteList[arcade.Sprite] = arcade.SpriteList(use_spatial_hash=True)
@@ -109,198 +132,120 @@ def build_level(game_map: Map) -> Level:
         for cc in game_map.chest_configs
     }
 
-    for y in range(game_map.height):
-        for x in range(game_map.width):
-            center_x = grid_to_pixels(x)
-            center_y = grid_to_pixels(y)
+    for x, y, cell in game_map.cells():
+        center_x = grid_to_pixels(x)
+        center_y = grid_to_pixels(y)
 
-            grounds.append(
-                arcade.Sprite(
-                    TEXTURE_GRASS,
-                    scale=SCALE,
-                    center_x=center_x,
-                    center_y=center_y,
+        grounds.append(_make_sprite(TEXTURE_GRASS, center_x, center_y))
+
+        match cell:
+            case GridCell.GRASS:
+                pass
+
+            case GridCell.BUSH:
+                walls.append(_make_sprite(TEXTURE_BUSH, center_x, center_y))
+
+            case GridCell.ICE:
+                ices.append(_make_sprite(TEXTURE_ICE, center_x, center_y))
+
+            case GridCell.CRYSTAL:
+                crystals.append(_make_anim_sprite(ANIMATION_CRYSTAL, center_x, center_y))
+
+            case GridCell.SPINNER_HORIZONTAL | GridCell.SPINNER_VERTICAL:
+                spinner = _make_anim_sprite(ANIMATION_SPINNERS, center_x, center_y)
+
+                bounds = spinner_bounds(game_map, x, y)
+                min_x_pixels = grid_to_pixels(bounds.min_x)
+                max_x_pixels = grid_to_pixels(bounds.max_x)
+                min_y_pixels = grid_to_pixels(bounds.min_y)
+                max_y_pixels = grid_to_pixels(bounds.max_y)
+
+                enemy: Enemy = SpinnerEnemy.from_bounds(
+                    sprite=spinner,
+                    min_x=min_x_pixels,
+                    max_x=max_x_pixels,
+                    min_y=min_y_pixels,
+                    max_y=max_y_pixels,
+                    is_horizontal=cell == GridCell.SPINNER_HORIZONTAL,
                 )
-            )
 
-            cell = game_map.get(x, y)
+                spinners.append(spinner)
+                enemies.append(enemy)
+                enemy_sprites.append(spinner)
 
-            match cell:
-                case GridCell.GRASS:
-                    pass
+            case GridCell.HOLE:
+                holes.append(_make_sprite(TEXTURE_HOLE, center_x, center_y))
 
-                case GridCell.BUSH:
-                    walls.append(
-                        arcade.Sprite(
-                            TEXTURE_BUSH,
-                            scale=SCALE,
-                            center_x=center_x,
-                            center_y=center_y,
-                        )
-                    )
+            case GridCell.BAT:
+                bat = _make_anim_sprite(ANIMATION_BAT, center_x, center_y)
 
-                case GridCell.ICE:
-                    ices.append(
-                        arcade.Sprite(
-                            TEXTURE_ICE,
-                            scale=SCALE,
-                            center_x=center_x,
-                            center_y=center_y,
-                        )
-                    )
+                enemy = BatEnemy(
+                    sprite=bat,
+                    bounds=bat_bounds(game_map, x, y, BAT_MOVEMENT_RADIUS),
+                )
 
-                case GridCell.CRYSTAL:
-                    crystals.append(
-                        arcade.TextureAnimationSprite(
-                            animation=ANIMATION_CRYSTAL,
-                            scale=SCALE,
-                            center_x=center_x,
-                            center_y=center_y,
-                        )
-                    )
+                bats.append(bat)
+                enemies.append(enemy)
+                enemy_sprites.append(bat)
 
-                case GridCell.SPINNER_HORIZONTAL | GridCell.SPINNER_VERTICAL:
-                    spinner = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_SPINNERS,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
+            case GridCell.SWITCH:
+                switch_config = switch_configs_by_position[(x, y)]
+                texture = (
+                    TEXTURE_SWITCH_ON
+                    if switch_config.state
+                    else TEXTURE_SWITCH_OFF
+                )
 
-                    bounds = spinner_bounds(game_map, x, y)
-                    min_x_pixels = grid_to_pixels(bounds.min_x)
-                    max_x_pixels = grid_to_pixels(bounds.max_x)
-                    min_y_pixels = grid_to_pixels(bounds.min_y)
-                    max_y_pixels = grid_to_pixels(bounds.max_y)
+                switch = _make_sprite(texture, center_x, center_y, scale=SWITCH_SCALE)
 
-                    enemy: Enemy = SpinnerEnemy.from_bounds(
-                        sprite=spinner,
-                        min_x=min_x_pixels,
-                        max_x=max_x_pixels,
-                        min_y=min_y_pixels,
-                        max_y=max_y_pixels,
-                        is_horizontal=cell == GridCell.SPINNER_HORIZONTAL,
-                    )
+                switches.append(switch)
+                switch_infos.append((switch, switch_config.id))
 
-                    spinners.append(spinner)
-                    enemies.append(enemy)
-                    enemy_sprites.append(spinner)
+            case GridCell.GATE:
+                gate_config = gate_configs_by_position[(x, y)]
 
-                case GridCell.HOLE:
-                    holes.append(
-                        arcade.Sprite(
-                            TEXTURE_HOLE,
-                            scale=SCALE,
-                            center_x=center_x,
-                            center_y=center_y,
-                        )
-                    )
+                gate = _make_sprite(TEXTURE_GATE_CLOSED, center_x, center_y)
 
-                case GridCell.BAT:
-                    bat = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_BAT,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
+                walls.append(gate)
+                gate_infos.append((gate, gate_config))
 
-                    enemy = BatEnemy(
-                        sprite=bat,
-                        bounds=bat_bounds(game_map, x, y, BAT_MOVEMENT_RADIUS),
-                    )
+            case GridCell.BLOB:
+                blob = _make_anim_sprite(ANIMATION_BLOB, center_x, center_y)
 
-                    bats.append(bat)
-                    enemies.append(enemy)
-                    enemy_sprites.append(bat)
+                enemy = BlobEnemy(
+                    sprite=blob,
+                    navmesh=navmesh,
+                    navmesh_subdivisions=BLOB_NAVMESH_SUBDIVISIONS,
+                    possible_destinations=build_possible_destinations(game_map, x, y),
+                )
 
-                case GridCell.SWITCH:
-                    switch_config = switch_configs_by_position[(x, y)]
-                    texture = (
-                        TEXTURE_SWITCH_ON
-                        if switch_config.state
-                        else TEXTURE_SWITCH_OFF
-                    )
+                blobs.append(blob)
+                enemy_sprites.append(blob)
+                enemies.append(enemy)
 
-                    switch = arcade.Sprite(
-                        texture,
-                        scale=SWITCH_SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
+            case GridCell.TELEPORTER:
+                tp_config = teleporter_configs_by_position[(x, y)]
 
-                    switches.append(switch)
-                    switch_infos.append((switch, switch_config.id))
+                tp_sprite = _make_sprite(TEXTURE_TELEPORTER, center_x, center_y)
 
-                case GridCell.GATE:
-                    gate_config = gate_configs_by_position[(x, y)]
+                teleporters.append(tp_sprite)
+                teleporter_infos.append((tp_sprite, tp_config))
 
-                    gate = arcade.Sprite(
-                        TEXTURE_GATE_CLOSED,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
+            case GridCell.KEY:
+                key_config = key_configs_by_position[(x, y)]
 
-                    walls.append(gate)
-                    gate_infos.append((gate, gate_config))
+                key_sprite = _make_anim_sprite(ANIMATION_KEY, center_x, center_y)
 
-                case GridCell.BLOB:
-                    blob = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_BLOB,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
+                keys.append(key_sprite)
+                key_infos.append((key_sprite, key_config))
 
-                    enemy = BlobEnemy(
-                        sprite=blob,
-                        navmesh=navmesh,
-                        navmesh_subdivisions=BLOB_NAVMESH_SUBDIVISIONS,
-                        possible_destinations=build_possible_destinations(game_map, x, y),
-                    )
+            case GridCell.CHEST:
+                chest_config = chest_configs_by_position[(x, y)]
 
-                    blobs.append(blob)
-                    enemy_sprites.append(blob)
-                    enemies.append(enemy)
+                chest_sprite = _make_anim_sprite(ANIMATION_CHEST, center_x, center_y)
 
-                case GridCell.TELEPORTER:
-                    tp_config = teleporter_configs_by_position[(x, y)]
-
-                    tp_sprite = arcade.Sprite(
-                        TEXTURE_TELEPORTER,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
-
-                    teleporters.append(tp_sprite)
-                    teleporter_infos.append((tp_sprite, tp_config))
-
-                case GridCell.KEY:
-                    key_config = key_configs_by_position[(x, y)]
-
-                    key_sprite = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_KEY,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
-
-                    keys.append(key_sprite)
-                    key_infos.append((key_sprite, key_config))
-
-                case GridCell.CHEST:
-                    chest_config = chest_configs_by_position[(x, y)]
-
-                    chest_sprite = arcade.TextureAnimationSprite(
-                        animation=ANIMATION_CHEST,
-                        scale=SCALE,
-                        center_x=center_x,
-                        center_y=center_y,
-                    )
-
-                    chests.append(chest_sprite)
-                    chest_infos.append((chest_sprite, chest_config))
+                chests.append(chest_sprite)
+                chest_infos.append((chest_sprite, chest_config))
 
     return Level(
         world_width=game_map.width * TILE_SIZE,

@@ -61,6 +61,8 @@ def build_possible_destinations(
 
 @dataclass
 class BlobEnemy(Enemy):
+    """An enemy that patrols randomly using a navmesh
+    and chases the player when it sees him."""
     sprite: arcade.TextureAnimationSprite
     navmesh: nx.Graph[NodeType]
     navmesh_subdivisions: int
@@ -77,6 +79,8 @@ class BlobEnemy(Enemy):
         self._refresh_path()
 
     def update(self, context: EnemyUpdateContext) -> None:
+        """Each frame: chases the player if visible, otherwise patrols to a random destination,
+        moving with the navmesh."""
         previous_destination = self.destination
         visible_player_position = self._visible_player_position(context)
 
@@ -85,7 +89,7 @@ class BlobEnemy(Enemy):
         elif self._has_arrived():
             self.destination = self._pick_new_destination()
 
-        if self.destination != previous_destination or len(self.path) < 2:
+        if self.destination != previous_destination or len(self.path) < 2: #Recompute the path if the destination changed or if the path is finished.
             self._refresh_path()
 
         self._advance_along_path()

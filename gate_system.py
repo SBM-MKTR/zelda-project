@@ -18,6 +18,8 @@ GateInfo = tuple[arcade.Sprite, GateConfig]
 
 @dataclass
 class GateSystem:
+    """Evaluates switch-gate logic each frame:
+    toggles switches and opens/closes gates using logical formulas."""
     switch_infos: list[SwitchInfo]
     gate_infos: list[GateInfo]
     walls: arcade.SpriteList[arcade.Sprite]
@@ -33,6 +35,7 @@ class GateSystem:
         }
 
     def update(self) -> None:
+        "Updates gates based on the recursive formula"
         switch_states = self._switch_states()
 
         for gate_sprite, gate_config in self.gate_infos:
@@ -41,7 +44,7 @@ class GateSystem:
 
     def toggle_switch(self, switch: arcade.Sprite) -> None:
         if switch not in self._switch_state_map:
-            raise ValueError("switch sprite inconnu")
+            raise ValueError("switch sprite unknown")
         new_state = not self._switch_state_map[switch]
         self._switch_state_map[switch] = new_state
         switch.texture = TEXTURE_SWITCH_ON if new_state else TEXTURE_SWITCH_OFF

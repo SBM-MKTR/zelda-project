@@ -19,6 +19,8 @@ class Direction(Enum):
     WEST = auto()
 
 class Player(arcade.TextureAnimationSprite) :
+    """The player character. Handles directions,
+    velocity with optional ice physics, and facing animation."""
     direction : Direction
     __right_pressed : bool
     __down_pressed : bool
@@ -66,6 +68,7 @@ class Player(arcade.TextureAnimationSprite) :
         self.__vel_x += (target_x - self.__vel_x) * friction
         self.__vel_y += (target_y - self.__vel_y) * friction
 
+        # Set to zero to avoid drifting forever
         if abs(self.__vel_x) < 0.01:
             self.__vel_x = 0.0
         if abs(self.__vel_y) < 0.01:

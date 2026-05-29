@@ -41,6 +41,7 @@ class GameView(arcade.View):
     crystals_sound: Final[arcade.Sound]
     spinners: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     score: int
+    _initial_crystal_count: int
     score_text: Final[arcade.Text]
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
@@ -117,6 +118,7 @@ class GameView(arcade.View):
             power_system=self.power_system,
         )
         self.score = 0
+        self._initial_crystal_count = len(self.crystals)
         self.score_text = arcade.Text(
             "Score: 0",
             SCORE_TEXT_X,
@@ -142,10 +144,10 @@ class GameView(arcade.View):
         self._chest_message_timer: int = 0
         self.blobs = self.level.blobs
 
-    def _restart(self) -> None:
-        """Réinitialise le jeu en créant une nouvelle instance de GameView"""
-        if len(self.crystals) == 0:
-            self.window.show_view(GameWinView(self.__map,self.score,))
+    def _restart(self, won: bool) -> None:
+        """Reset the game by creating a new instance of GameView."""
+        if won:
+            self.window.show_view(GameWinView(self.__map, self.score))
         else:
             self.window.show_view(GameOverView(self.__map, self.score))
 
@@ -175,8 +177,9 @@ class GameView(arcade.View):
     def on_draw(self) -> None:
         """Draw all game elements.
         Renders two layers using separate cameras:
-        - World camera: ground, holes, walls, crystals, spinners, player, boomerang and bats
-        - UI camera: score display (fixed to screen, independent of world movement)
+        - World camera: every element of the "real world"
+        - UI camera: score, messages, active weapon, active power
+        display (fixed to screen, independent of world movement)
         """
         self.clear()
         with self.camera.activate():
@@ -212,7 +215,7 @@ class GameView(arcade.View):
     def on_key_press(self, symbol: int, modifiers: int) -> None:
         match symbol:
             case arcade.key.ESCAPE:
-                self._restart()
+                self._restart(won=False)
 
             case arcade.key.R:
                 self.weapon_system.switch_active_weapon()
@@ -266,14 +269,14 @@ class GameView(arcade.View):
         self.weapon_system.update(self.player, delta_time)
         collision_result = self.collision_system.update()
 
-        if collision_result.should_restart :
-            self._restart()
+        if collision_result.should_restart:
+            self._restart(won=False)
             return
 
         self.score += collision_result.score_delta
 
-        if len(self.crystals) == 0:
-            self._restart()
+        if self._initial_crystal_count > 0 and len(self.crystals) == 0:
+            self._restart(won=True)
             return
 
         if collision_result.teleport_destination is not None:

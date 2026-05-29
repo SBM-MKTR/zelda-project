@@ -95,7 +95,7 @@ P@x
         Map.from_string(text)
 
 def test_player_start_cell_is_stored_in_grid() -> None:
-    """La cellule de départ du joueur doit être GridCell.PLAYER_START dans la grille."""
+    """The player's starting cell must be GridCell.GRASS in the grid."""
     text = """width: 3
 height: 3
 ---

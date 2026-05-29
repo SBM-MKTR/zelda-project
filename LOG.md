@@ -13,7 +13,7 @@
 * [x] Classe et direction pour le joueur  90
 * [x] Trous  90
 * [x] Affichage du score  15
-* [x] Orientation du joueur  90
+* [x] Orientation du joueur  120
 * [x] Boomerang  150
 * [x] Chauve-souris  180
 * [x] Epée  150

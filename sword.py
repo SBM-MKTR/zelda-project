@@ -19,6 +19,7 @@ from weapon_base import SpriteT, Weapon, collect_new_collisions
 
 
 class SwordWeapon(Weapon):
+    """A melee weapon that plays a directional swing animation."""
     sprite: Final[arcade.TextureAnimationSprite]
     hitbox: Final[arcade.Sprite]
     elapsed_time: float
@@ -56,6 +57,8 @@ class SwordWeapon(Weapon):
         self.active = True
 
     def update(self, player: Player, delta_time: float) -> None:
+        """Plays the sword animation and deactivates it when SWORD_ATTACK_DURATION has passed.
+        Does nothing when inactive."""
         if not self.active:
             return
 

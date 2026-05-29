@@ -789,7 +789,7 @@ Contient uniquement des types de données : enums et dataclasses. Il est entièr
 - **Dataclasses** (`SwitchConfig`, `GateConfig`, `TeleporterConfig`, `KeyConfig`, `ChestConfig`, `ParsedHeader`) : structures de données immuables qui transportent la configuration lue depuis le fichier de carte.
 - **`InvalidMapFileException`** : exception pour signaler une carte invalide au moment du chargement.
 
-**Méthodologies** : Séparation entre données et comportement. Les dataclasses `frozen=True` garantissent l'**immutabilité** des configurations après chargement. L'`Enum` pour `GridCell` évite les chaînes de caractères magiques et rend le code plus sûr.
+**Méthodologies** : Séparation entre données et comportement. Les dataclasses `frozen=True` garantissent l'immutabilité des configurations après chargement. L'`Enum` pour `GridCell` évite les chaînes de caractères magiques et rend le code plus sûr.
 
 ---
 
@@ -813,15 +813,15 @@ La classe `Map` est la représentation immuable de la carte chargée. Elle stock
 
 **Encapsulation** : tous les attributs sont privés et exposés uniquement en lecture via des `@property`. Rien à l'extérieur ne peut modifier une `Map` après sa construction.
 
-**Validation** : la méthode `_validate_entity_positions` vérifie la cohérence entre la grille et les configurations : chaque cellule spéciale a bien une config, et vice versa. Cette vérification se fait à la construction, pas à l'usage.
+**Validation** : les méthodes `_validate_entity_positions` et `_validate_entity_group` vérifient la cohérence entre la grille et les configurations : chaque cellule spéciale a bien une config, et vice versa. Cette vérification se fait à la construction, pas à l'usage.
 
-**Méthodes de fabrique** : `Map.from_file` et `Map.from_string` permettent de construire une `Map` depuis un fichier ou une chaîne. Cela découple la construction de la représentation et facilite les tests (on peut passer une string directement).
+**Méthodes de fabrique** : `Map.from_file` et `Map.from_string` permettent de construire une `Map` depuis un fichier ou une chaîne. Cela dissocie la construction et la représentation et facilite les tests (on peut passer une string directement).
 
 Fonctions utilitaires associées :
-- `spinner_bounds` : calcule les bornes de déplacement d'un spinner en parcourant la grille — indépendamment d'Arcade, donc testable.
+- `spinner_bounds` : calcule les bornes de déplacement d'un spinner en parcourant la grille. C'est fait indépendamment d'Arcade, donc c'est testable.
 - `bat_bounds` : calcule le centre et le rayon de la zone d'une chauve-souris.
 
-**Méthodologies** : **Encapsulation** stricte (attributs privés, interface publique minimale). **Immutabilité** : la carte ne change jamais après chargement, ce qui simplifie le raisonnement sur l'état du jeu. **Méthodes de fabrique** pour découpler construction et représentation.
+**Méthodologies** : Encapsulation stricte (attributs privés, interface publique minimale). Immutabilité : la carte ne change jamais après chargement, ce qui simplifie le raisonnement sur l'état du jeu. Séparation de la construction et de la représentation.
 
 ---
 
@@ -831,7 +831,7 @@ La fonction `build_level` transforme un `Map` (données abstraites) en un `Level
 
 La dataclass `Level` regroupe toutes les `SpriteList` et listes d'objets du monde. Elle expose `remove_enemy_sprite` pour retirer un ennemi tué sans casser les références croisées.
 
-**Méthodologies** : Séparation entre **données** (`Map`) et **représentation graphique** (`Level`). La construction est isolée dans une fonction dédiée `build_level`, ce qui permet de réinitialiser le jeu en recréant simplement un `Level` à partir du même `Map` immuable.
+**Méthodologies** : Séparation entre données (`Map`) et représentation graphique (`Level`). La construction est isolée dans une fonction dédiée `build_level`, ce qui permet de réinitialiser le jeu en recréant simplement un `Level` à partir du même `Map` immuable.
 
 ---
 
@@ -841,10 +841,10 @@ Définit une abstractmethod commune pour tous les ennemis.
 
 - **`Enemy`** : classe abstraite avec une seule méthode `update`.
 - **`EnemyUpdateContext`** (dataclass frozen) : regroupe les informations nécessaires à la mise à jour d'un ennemi (joueur, murs pour la ligne de vue, état du pouvoir fantôme). C'est un objet de contexte passé à chaque `update`, ce qui évite de passer de nombreux paramètres séparés.
-- **`SpinnerEnemy`** et **`BatEnemy`**  : héritent toutes deux de **`Enemy`** et implémentent `update`, ainsi que leurs méthodes respectives
+- **`SpinnerEnemy`** et **`BatEnemy`** héritent toutes les deux de **`Enemy`** et implémentent `update`, ainsi que leurs méthodes respectives.
 
 
-**Méthodologies** : **Polymorphisme** via la classe abstraite `Enemy`. Le `GameView` appelle `enemy.update(context)` sur tous les ennemis sans distinguer leurs types. Il est donc possible d'ajouter un nouveau type d'ennemi sans modifier `GameView`.
+**Méthodologies** : Polymorphisme via la classe abstraite `Enemy`. Le `GameView` appelle `enemy.update(context)` sur tous les ennemis sans distinguer leurs types. Donc il est possible d'ajouter un nouveau type d'ennemi sans modifier `GameView`.
 
 **Question de design (semaine 4 — Chauves-souris)** : Comment gérez-vous le fait que vous avez maintenant deux types de monstres, avec des comportements différents ?
 
@@ -852,21 +852,19 @@ Réponse : via la classe abstraite `Enemy` et le polymorphisme. Chaque type d'en
 
 ---
 
-### `blob.py` — Ennemi blob (pathfinding)
+### `blob.py` — Blob (pathfinding)
 
-`BlobEnemy` est un ennemi qui navigue intelligemment sur la carte grâce au navmesh.
-
-- Patrouille aléatoirement parmi une liste de destinations possibles (`build_possible_destinations`), calculée une fois pour toutes au chargement à partir de la `Map`.
+- Patrouille aléatoirement parmi une liste de destinations possibles (`build_possible_destinations`), calculée une seule fois au chargement à partir de la `Map`.
 - Si le joueur est visible (ligne de vue non bloquée via `arcade.has_line_of_sight`, distance max de 5 tiles), le blob le prend pour destination.
 - Utilise `find_path` (Dijkstra via NetworkX) pour calculer un chemin sur le navmesh, puis avance waypoint par waypoint.
 
-**Méthodologies** : Séparation entre **comportement** (`BlobEnemy.update`) et **infrastructure de navigation** (`navmesh.py`). Le blob ne connaît pas les détails du graphe, il délègue à `find_path`. Les destinations possibles sont précalculées, conformément à la consigne de ne calculer que ce qui ne change pas au chargement.
+**Méthodologies** : Séparation entre comportement (`BlobEnemy.update`) et infrastructure de navigation (`navmesh.py`). Le blob ne connaît pas les détails du graphe, il délègue à `find_path`. Les destinations possibles sont précalculées, conformément à la consigne de ne calculer que ce qui ne change pas au chargement.
 
 **Question de design (semaine 6 — Blobs)** :
 
 *Qu'avez-vous choisi comme type de nœud `TypeNoeud` ?*
 
-On utilise `tuple[int, int]` (alias `NodeType`). Un nœud est identifié par ses indices `(ix, iy)` dans la grille de sous-nœuds. C'est hashable (nécessaire pour NetworkX et les `set`), léger, et naturellement ordonnable. La position pixel est calculée à la demande via `_node_pixel_position(ix, iy, n)`.
+On utilise `tuple[int, int]` (alias `NodeType`). Un nœud est identifié par ses indices `(ix, iy)` dans la grille de sous-nœuds. C'est hashable (nécessaire pour NetworkX et les `set`) et ordonnable. La position pixel est calculée à la demande via `_node_pixel_position(ix, iy, n)`.
 
 *À quel niveau traitez-vous la construction du navmesh ?*
 
@@ -880,13 +878,11 @@ Oui. `build_navmesh` ne dépend que de `Map` et de constantes numériques, pas d
 
 ### `navmesh.py` — Navigation sur la carte
 
-Construit un graphe de navigation (`networkx.Graph`) pour permettre aux blobs de trouver un chemin évitant les obstacles.
-
 - `build_navmesh(game_map, n)` : subdivise chaque cellule en `n×n` sous-nœuds (avec `n` impair), élimine ceux à moins d'une distance `s` du centre d'un buisson, et connecte les nœuds voisins (8-connexité) avec un poids euclidien.
 - `nearest_node` : trouve le nœud du graphe le plus proche d'une position pixel.
 - `find_path` : utilise `nx.dijkstra_path` pour trouver le chemin optimal entre deux positions.
 
-**Méthodologies** : Module à responsabilité unique. Le choix de NetworkX illustre la **réutilisation de bibliothèques** pour des algorithmes complexes (Dijkstra) plutôt que de les réimplémenter.
+**Méthodologies** : Module à responsabilité unique. Le choix de NetworkX illustre la réutilisation de bibliothèques pour des algorithmes complexes (Dijkstra) plutôt que de les réimplémenter.
 
 **Question de design (semaine 6)** : *Si vous avez n×n nœuds par cellule et une carte de taille m×m, quelle est la complexité ?*
 
@@ -907,13 +903,13 @@ Construit un graphe de navigation (`networkx.Graph`) pour permettre aux blobs de
 
 **Question de design (semaine 6)** : *Quelle structure de données utilisez-vous pour représenter les conditions d'ouverture des portails ?*
 
-Les formules sont représentées comme des `dict` imbriqués, directement tels que parsés depuis le YAML. C'est une structure récursive naturelle pour représenter un arbre d'expression logique. `evaluate_formula` parcourt cet arbre récursivement par pattern matching. Cette approche évite de définir une hiérarchie de classes pour les nœuds d'arbre, ce qui aurait été plus lourd pour un usage aussi simple.
+Les formules sont représentées comme des `dict` imbriqués, directement tels que parsés depuis le YAML. C'est une structure récursive naturelle pour représenter un arbre d'expression logique. `evaluate_formula` parcourt cet arbre récursivement par pattern matching.
 
 *S'il y a n interrupteurs et m portails, quelle est la complexité à chaque frame ?*
 
 Avec des formules simples (`switch_is_on` uniquement) : `O(m)`, on évalue une formule en `O(1)` par portail. Avec des formules composées de profondeur `d` : `O(m · d)`. La validation à la construction garantit que `d ≤ 10`.
 
-**Méthodologies** : **Encapsulation** de l'état des interrupteurs. La logique de formule est déléguée à `map_parser.evaluate_formula` (séparation des responsabilités). L'usage d'un `dict` comme clé dans `_switch_state_map` permet une lookup en `O(1)` grâce au hachage.
+**Méthodologies** : Encapsulation de l'état des interrupteurs. La logique de formule est déléguée à `map_parser.evaluate_formula` (séparation des responsabilités). L'usage d'un `dict` comme clé dans `_switch_state_map` permet une lookup en `O(1)` grâce au haschage.
 
 ---
 
@@ -950,7 +946,7 @@ Les méthodes publiques de `Player` reçoivent un `Direction`, pas un `int`. La 
 
 ### `weapon_base.py` et `weapon_system.py` — Armes (polymorphisme)
 
-- **`Weapon`** (ABC) : interface commune pour toutes les armes (`use`, `update`, `draw`, `is_active`, `check_collisions`, `on_hit`). Des méthodes optionnelles avec valeurs par défaut (`can_hit_enemies`, `can_toggle_switches`, `can_collect_crystals`, `can_hit_obstacles`) permettent à chaque arme de déclarer ses capacités sans forcer toutes les sous-classes à tout implémenter.
+- **`Weapon`** : interface commune pour toutes les armes (`use`, `update`, `draw`, `is_active`, `check_collisions`, `on_hit`). Des méthodes optionnelles avec valeurs par défaut (`can_hit_enemies`, `can_toggle_switches`, `can_collect_crystals`, `can_hit_obstacles`) permettent à chaque arme de déclarer ses capacités sans forcer toutes les sous-classes à tout implémenter.
 - **`SwordWeapon`** : Active pendant la durée de l'animation.
 - **`BoomerangWeapon`** / **`Boomerang`** : L'état est géré par `BoomerangState` (Enum).
 - **`WeaponSystem`** : gère le choix de l'arme active, dispatche les appels `update`/`draw`, et centralise la vérification des collisions selon les capacités de chaque arme.
@@ -971,7 +967,7 @@ Via `BoomerangState` (Enum : `INACTIVE`, `LAUNCHING`, `RETURNING`). L'Enum est p
 
 ---
 
-### `power_system.py` — Pouvoirs (pattern Stratégie)
+### `power_system.py` — Pouvoirs
 
 - **`Power`** (ABC) : interface avec `on_activate`, `on_deactivate`, et `name`.
 - **`GhostPower`** : rend le joueur semi-transparent (`alpha = 100`) et invincible aux ennemis.
@@ -984,7 +980,7 @@ Via `BoomerangState` (Enum : `INACTIVE`, `LAUNCHING`, `RETURNING`). L'Enum est p
 
 ### `camera_controller.py` — Caméra
 
-`CameraController` suit le joueur avec une marge (`margin_x`, `margin_y`) : la caméra ne bouge que si le joueur s'approche du bord de la zone visible. Elle est également clampée pour ne jamais montrer l'extérieur du monde.
+`CameraController` suit le joueur avec une marge (`margin_x`, `margin_y`) : la caméra ne bouge que si le joueur s'approche du bord de la zone visible. Elle est également limitée pour ne jamais montrer l'extérieur du monde.
 
 **Méthodologies** : Responsabilité unique. La logique de caméra est entièrement isolée dans ce module, testable sans Arcade.
 
@@ -995,7 +991,7 @@ Via `BoomerangState` (Enum : `INACTIVE`, `LAUNCHING`, `RETURNING`). L'Enum est p
 - **`GameView`** : vue principale. Orchestre tous les systèmes, gère les entrées clavier, et délègue le rendu et la logique à chaque sous-système. Utilise deux caméras : une pour le monde (qui suit le joueur), une pour l'UI (fixe).
 - `GameOverView` et `GameWinView` : vues simples affichant le résultat et permettant de relancer une partie.
 
-**Méthodologies** : Le `GameView` joue le rôle de contrôleur : il coordonne sans implémenter. La double caméra (monde + UI) permet d'afficher le score à une position fixe à l'écran indépendamment du déplacement du monde. Classe parent `EndGameView` dont `GameOverView` et `GameWinView` héritent.
+**Méthodologies** : Le `GameView` joue le rôle de contrôleur : il coordonne sans implémenter et délègue tout aux autres modules et classes. La double caméra (monde + UI) permet d'afficher le score à une position fixe à l'écran indépendamment du déplacement du monde. Classe parent `EndGameView` dont `GameOverView` et `GameWinView` héritent.
 
 ---
 

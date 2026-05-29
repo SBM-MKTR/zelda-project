@@ -1,4 +1,5 @@
 from enum import Enum
+import math
 
 import arcade
 
@@ -12,6 +13,8 @@ class BoomerangState(Enum):
     RETURNING = 2
 
 class Boomerang(arcade.TextureAnimationSprite):
+    """Sprite throwed by the player that travels in one direction
+    then comes back to him."""
 
     def __init__(self) -> None:
         super().__init__(
@@ -51,6 +54,8 @@ class Boomerang(arcade.TextureAnimationSprite):
         self.state = BoomerangState.LAUNCHING
 
     def update_boomerang(self, player: Player) -> None:
+        """Advances the boomerang one frame: moves forward while LAUNCHING until max distance,
+        then comes back to the player while RETURNING."""
 
         if self.state == BoomerangState.LAUNCHING:
             self.center_x += self.dir_x * BOOMERANG_SPEED
@@ -58,7 +63,7 @@ class Boomerang(arcade.TextureAnimationSprite):
 
             dx = self.center_x - self.start_x
             dy = self.center_y - self.start_y
-            distance = (dx**2 + dy**2)**0.5
+            distance = math.hypot(dx, dy)
             if distance >= BOOMERANG_MAX_DISTANCE:
                 self.state = BoomerangState.RETURNING
 
@@ -66,18 +71,18 @@ class Boomerang(arcade.TextureAnimationSprite):
             dx = player.center_x - self.center_x
             dy = player.center_y - self.center_y
 
-            dist = (dx**2 + dy**2)**0.5
+            dist = math.hypot(dx, dy)
 
             if dist <= BOOMERANG_SPEED:
-                #si le boomerang est assez proche pour être rattrapé au prochain déplacement, on l’arrête directement
-                # à la place de mettre un distance fixe préféfinie
+                # Directly stop the boomerang if it's close enough to be caught during the next update,
+                # instead of setting a pre-defined fixed distance
                 self.state = BoomerangState.INACTIVE
                 self.center_x = player.center_x
                 self.center_y = player.center_y
                 return
 
-            #on normalise le vecteur boomerang -> player (pour l'utiliser comme vecteur directeur)
-            #comme ca le boomerang se deplace bien a la même vitesse quelque soit sa distance avec le player
+            # Normalize the boomerang -> player vector (to use it as a direction vector)
+            # This way the boomerang moves at the same speed regardless of its distance from the playe
             dx /= dist
             dy /= dist
 

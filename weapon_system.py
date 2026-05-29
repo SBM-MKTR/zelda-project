@@ -15,6 +15,8 @@ class ActiveWeapon(Enum):
 
 
 class BoomerangWeapon(Weapon):
+    """Weapon adapter that wraps a Boomerang.
+    Tracks hits per throw to avoid double-counting."""
     boomerang: Final[Boomerang]
     sprites: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]
     hit_sprite_ids: set[int]
@@ -68,6 +70,8 @@ class BoomerangWeapon(Weapon):
 
 
 class WeaponSystem:
+    """Manages the two weapons (boomerang and sword),
+    tracks the active one, and guides collision queries."""
     boomerang_weapon: Final[BoomerangWeapon]
     sword_weapon: Final[SwordWeapon]
     weapons: Final[tuple[Weapon, ...]]

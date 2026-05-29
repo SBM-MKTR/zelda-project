@@ -1,3 +1,4 @@
+from pyglet.math import Vec2
 from dataclasses import dataclass
 
 import arcade
@@ -8,6 +9,8 @@ from player import Player
 
 @dataclass
 class CameraController:
+    """Uses a Camera2D to follow the player within a dead-zone margin,
+    limited to world bounds."""
     camera: arcade.camera.Camera2D
     player: Player
     world_width: int
@@ -16,9 +19,11 @@ class CameraController:
     margin_y: int = CAMERA_MARGIN_Y
 
     def center_on_player(self) -> None:
-        self.camera.position = (self.player.center_x, self.player.center_y)
+        self.camera.position = Vec2(self.player.center_x, self.player.center_y)
 
     def update(self, screen_width: int, screen_height: int) -> None:
+        """Get the camera to keep the player inside the dead-zone margins,
+        then limits the view to the world bounds."""
         cam_x, cam_y = self.camera.position
 
         if self.player.center_x < cam_x - self.margin_x:
@@ -42,7 +47,7 @@ class CameraController:
             world_size=self.world_height,
         )
 
-        self.camera.position = (cam_x, cam_y)
+        self.camera.position = Vec2(cam_x, cam_y)
 
     @staticmethod
     def _clamp_camera_axis(
@@ -50,6 +55,8 @@ class CameraController:
         screen_size: int,
         world_size: int,
     ) -> float:
+        """Keeps the camera within [half_screen, world_size - half_screen].
+        Centers the view if the world fits on the screen."""
         if world_size <= screen_size:
             return world_size / 2
 

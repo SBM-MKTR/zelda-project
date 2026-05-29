@@ -12,7 +12,6 @@ def _is_obstacle_for_blob(cell: GridCell) -> bool:
 
 
 def _node_pixel_position(ix: int, iy: int, n: int) -> tuple[float, float]:
-    """Retourne la position pixel du nœud (ix, iy) dans la grille de sous-nœuds."""
     s = TILE_SIZE
     x = (ix + 0.5) * s / n
     y = (iy + 0.5) * s / n
@@ -20,15 +19,9 @@ def _node_pixel_position(ix: int, iy: int, n: int) -> tuple[float, float]:
 
 
 def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
-    """Construit le navmesh pour les blobs.
-
-    Args:
-        game_map: la map du jeu
-        n: nombre de sous-nœuds par côté de cellule (doit être impair >= 1)
-
-    Returns:
-        Un graphe NetworkX où les nœuds sont des tuples (ix, iy)
-        et les arêtes ont un attribut 'weight' = distance euclidienne.
+    """Builds navmesh for blobs.
+    Returns a NetworkX graph where nodes are tuples (ix, iy)
+    and edges have a 'weight' attribute = euclidean distance.
     """
     if n < 1 or n % 2 == 0:
         raise ValueError("n must be a positive odd integer")
@@ -60,7 +53,7 @@ def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
                             bush_px = (nx_cell + 0.5) * s
                             bush_py = (ny_cell + 0.5) * s
                             dist = math.hypot(px - bush_px, py - bush_py)
-                            if dist < s:
+                            if dist < s: # Ignores nodes closer than one tile to a wall (keeps blobs from cutting off corners)
                                 too_close = True
                                 break
                     if too_close:
@@ -86,7 +79,6 @@ def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
 
 
 def nearest_node(graph: nx.Graph[NodeType], px: float, py: float, n: int) -> NodeType:
-    """Retourne le nœud du graphe le plus proche de la position pixel (px, py)."""
     best_node: NodeType | None = None
     best_dist = float("inf")
 

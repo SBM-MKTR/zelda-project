@@ -12,20 +12,27 @@ from player import Player
 
 @dataclass(frozen=True)
 class EnemyUpdateContext:
+    """Current world state passed to each Enemy.update() call (read-only)."""
     player: Player
     line_of_sight_walls: arcade.SpriteList[arcade.Sprite]
     is_ghost_active: bool = False
 
 
 class Enemy(ABC):
+    """Abstract base for all enemies.
+    Subclasses implement update() to define movement behaviour."""
     sprite: arcade.TextureAnimationSprite
 
     @abstractmethod
     def update(self, context: EnemyUpdateContext) -> None:
+        """Advances the enemy by one frame.
+        Must move the enemy's sprite without modifying context.
+        Called every frame by GameView only when the freeze power is not active."""
         pass
 
 @dataclass
 class SpinnerEnemy(Enemy):
+    """An enemy that goes in a straight line and bounces back and forth off walls."""
     sprite: arcade.TextureAnimationSprite
     min_x: int
     max_x: int
@@ -50,6 +57,7 @@ class SpinnerEnemy(Enemy):
         return cls(sprite, min_x, max_x, min_y, max_y)
 
     def update(self, context: EnemyUpdateContext) -> None:
+        """Moves the spinner on its straight line and reverses direction when hitting a boundary."""
         self.sprite.center_x += self.sprite.change_x
         self.sprite.center_y += self.sprite.change_y
 
@@ -72,6 +80,8 @@ class SpinnerEnemy(Enemy):
 
 @dataclass
 class BatEnemy(Enemy):
+    """An enemy that goes around randomly within a circular zone,
+    slightly changing direction every few frames."""
     sprite: arcade.TextureAnimationSprite
     bounds: BatBounds
     rng: random.Random = field(default_factory=random.Random)
@@ -81,9 +91,11 @@ class BatEnemy(Enemy):
         self._choose_random_direction()
 
     def update(self, context: EnemyUpdateContext) -> None:
+        """Moves the bat randomly within its bounding circle,
+        changing direction every 50 frames."""
         self.frame_count += 1
 
-        if self.frame_count % 50 == 0:
+        if self.frame_count % 50 == 0: # Change direction every 50 frames (approximetaly 0.8s since we have 60 fps)
             angle = math.atan2(self.sprite.change_y, self.sprite.change_x)
             new_angle = self.rng.triangular(angle - math.pi, angle + math.pi, angle)
             self._set_direction(new_angle)

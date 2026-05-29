@@ -1,20 +1,19 @@
 from dataclasses import dataclass, field
-
 import arcade
-
 from constants import HOLE_DEATH_RADIUS
 from gate_system import GateSystem
-from level import Level, TeleporterInfo, ChestInfo, KeyInfo
+from level import Level
 from player import Player
 from weapon_base import Weapon
 from weapon_system import WeaponSystem
 from textures import ANIMATION_CHEST_OPEN, ANIMATION_CHEST_STAYS_OPEN
 from power_system import PowerSystem
-from constants import SCALE
 
 
 @dataclass(frozen=True)
 class CollisionResult:
+    """Immutable result of one CollisionSystem.update() tick:
+    death flag, score delta, teleport destination, chest message."""
     should_restart: bool = False
     score_delta: int = 0
     teleport_destination: tuple[float, float] | None = None
@@ -23,6 +22,8 @@ class CollisionResult:
 
 @dataclass
 class CollisionSystem:
+    """Centralises all collision checks
+    and returns a CollisionResult instead of changing state directly."""
     level: Level
     player: Player
     weapon_system: WeaponSystem
@@ -34,6 +35,9 @@ class CollisionSystem:
     _opening_chests: set[arcade.TextureAnimationSprite] = field(default_factory=set, init=False)
 
     def update(self) -> CollisionResult:
+        """Runs all collision checks for one frame and
+        returns a CollisionResult telling what happened
+        (death, score, teleport, chest message)."""
         if self._player_falls_in_hole():
             return CollisionResult(should_restart=True)
 
@@ -143,6 +147,8 @@ class CollisionSystem:
             self.level.key_infos.remove((key_sprite, key_config))
 
     def _handle_chest_openings(self) -> str | None:
+        """Opens a chest if the player stands on it and holds the matching key.
+        Returns a message string if access is denied, else None."""
         for chest_sprite, chest_config in list(self.level.chest_infos):
             if not arcade.check_for_collision(self.player, chest_sprite):
                 continue
@@ -162,9 +168,10 @@ class CollisionSystem:
         return None
 
     def _update_opening_chests(self) -> None:
+        """Handles the animation part of chests"""
         for chest_sprite in list(self._opening_chests):
             frames = len(ANIMATION_CHEST_OPEN.keyframes)
-            duration = ANIMATION_CHEST_OPEN.keyframes[0].duration  # ms par frame
+            duration = ANIMATION_CHEST_OPEN.keyframes[0].duration  # ms per frame
             total_ms = frames * duration
             if chest_sprite.time * 1000 >= total_ms:
                 chest_sprite.animation = ANIMATION_CHEST_STAYS_OPEN
@@ -188,7 +195,7 @@ class CollisionSystem:
             if target_sprite is None:
                 continue
 
-            self._teleport_cooldown = 60
+            self._teleport_cooldown = 60 # 1-second cooldown to avoid immediately teleporting back
             return (target_sprite.center_x, target_sprite.center_y)
 
         return None

@@ -4,12 +4,14 @@ from typing import Final
 
 
 class EndGameView(arcade.View):
+    """View of the endgame, when the player wins or lose.
+    Parent class for both types of endgames"""
     game_map: Final[Map]
     score: Final[int]
     title: arcade.Text
     score_text: Final[arcade.Text]
     restart_text: Final[arcade.Text]
-    backgroud_color_value: arcade.types.Color
+    background_color_value: arcade.types.Color
 
     def __init__(self, game_map: Map, score: int) -> None:
         super().__init__()
@@ -70,6 +72,7 @@ class EndGameView(arcade.View):
 
 
 class GameOverView(EndGameView):
+    """View when the player loses"""
     def __init__(self, game_map: Map, score: int) -> None:
         super().__init__(game_map, score)
 
@@ -77,6 +80,7 @@ class GameOverView(EndGameView):
         self.title.color = arcade.color.RED
 
 class GameWinView(EndGameView):
+    """View when the player wins"""
     def __init__(self, game_map: Map, score: int) -> None:
         super().__init__(game_map, score)
 
