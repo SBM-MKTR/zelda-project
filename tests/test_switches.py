@@ -102,7 +102,7 @@ def test_validate_unknown_operator_raises() -> None:
 
 def test_validate_depth_limit_raises() -> None:
     formula: dict = {"switch_is_on": "a"}
-    for _ in range(11):
+    for _ in range(21):
         formula = {"not": [formula]}
     with pytest.raises(InvalidMapFileException):
         validate_formula(formula, {"a"})

@@ -1,43 +1,21 @@
 # Fichier design
+## Code de notre diagramme Mermaid qui représente l'architecture de montre projet, explication textuelle en dessous
 
+```mermaid
 classDiagram
 
-%% ─────────────────────────────
-%% POINT D'ENTRÉE
-%% ─────────────────────────────
-
+%% ───── POINT D'ENTRÉE ─────
 class Main {
     <<module>>
     +DEFAULT_MAP_PATH : str
     +main() None
 }
-Main --> Map : charge
-Main --> GameView : lance
 
-%% ─────────────────────────────
-%% VUES
-%% ─────────────────────────────
-
+%% ───── VUES ─────
 class GameView {
     -__map : Map
     -level : Level
-    -world_width : int
-    -world_height : int
     -player : Player
-    -player_list : SpriteList
-    -grounds : SpriteList
-    -walls : SpriteList
-    -ices : SpriteList
-    -crystals : SpriteList
-    -spinners : SpriteList
-    -holes : SpriteList
-    -bats : SpriteList
-    -blobs : SpriteList
-    -switches : SpriteList
-    -gates : SpriteList
-    -teleporters : SpriteList
-    -keys : SpriteList
-    -chests : SpriteList
     -weapon_system : WeaponSystem
     -gate_system : GateSystem
     -collision_system : CollisionSystem
@@ -47,51 +25,35 @@ class GameView {
     -camera : Camera2D
     -camera_ui : Camera2D
     -score : int
-    -score_text : Text
-    -power_text : Text
-    -chest_message_text : Text
-    -_chest_message_timer : int
     +on_show_view() None
     +on_draw() None
-    +on_update(delta_time: float) None
-    +on_key_press(symbol: int, modifiers: int) None
-    +on_key_release(symbol: int, modifiers: int) None
-    -_restart() None
-    -_direction_from_key(symbol: int) Direction
+    +on_update(delta_time) None
+    +on_key_press(symbol, modifiers) None
+    +on_key_release(symbol, modifiers) None
+    -_restart(won) None
+    -_direction_from_key(symbol) Direction
     -_update_enemies() None
-    -_update_gates() None
 }
-
-class GameOverView {
-    -game_map : Map
-    -score : int
-    -title : Text
-    -score_text : Text
-    -restart_text : Text
+class EndGameView {
+    +game_map : Map
+    +score : int
+    +title : Text
+    +score_text : Text
+    +restart_text : Text
     +on_show_view() None
     +on_draw() None
-    +on_key_press(symbol: int, modifiers: int) None
+    +on_key_press(symbol, modifiers) None
 }
+class GameOverView
+class GameWinView
 
-class GameWinView {
-    -game_map : Map
-    -score : int
-    -title : Text
-    -score_text : Text
-    -restart_text : Text
-    +on_show_view() None
-    +on_draw() None
-    +on_key_press(symbol: int, modifiers: int) None
-}
+EndGameView <|-- GameOverView
+EndGameView <|-- GameWinView
+Main ..> Map : charge
+Main ..> GameView : lance
+GameView ..> EndGameView : fin de partie
 
-GameView --> GameOverView
-GameView --> GameWinView
-GameOverView --> GameView
-GameWinView --> GameView
-%% ─────────────────────────────
-%% JOUEUR
-%% ─────────────────────────────
-
+%% ───── JOUEUR ─────
 class Direction {
     <<enumeration>>
     NORTH
@@ -99,67 +61,30 @@ class Direction {
     EAST
     WEST
 }
-
 class Player {
     +direction : Direction
-    -__right_pressed : bool
-    -__left_pressed : bool
-    -__up_pressed : bool
-    -__down_pressed : bool
     -__vel_x : float
     -__vel_y : float
-    +press_direction(direction: Direction) None
-    +release_direction(direction: Direction) None
-    +update_physics(on_ice: bool) None
-    -__target_velocity(max_speed: float) tuple
-    -__set_direction_pressed(direction: Direction, is_pressed: bool) None
+    +press_direction(direction) None
+    +release_direction(direction) None
+    +update_physics(on_ice) None
+    -__target_velocity(max_speed) tuple
     -__update_direction_and_animation() None
 }
-
 Player --> Direction
 
-%% ─────────────────────────────
-%% MAP, TYPES, PARSING
-%% ─────────────────────────────
-
+%% ───── DONNÉES DE CARTE (map_types) ─────
 class GridCell {
     <<enumeration>>
-    GRASS
-    BUSH
-    CRYSTAL
-    SPINNER_HORIZONTAL
-    SPINNER_VERTICAL
-    HOLE
-    BAT
-    BLOB
-    SWITCH
-    GATE
-    TELEPORTER
-    KEY
-    CHEST
-    ICE
+    GRASS BUSH CRYSTAL ICE
+    SPINNER_HORIZONTAL SPINNER_VERTICAL
+    HOLE BAT BLOB
+    SWITCH GATE TELEPORTER KEY CHEST
     PLAYER_START
 }
-
 class InvalidMapFileException {
     <<exception>>
 }
-
-class SpinnerBounds {
-    <<dataclass>>
-    +min_x : int
-    +max_x : int
-    +min_y : int
-    +max_y : int
-}
-
-class BatBounds {
-    <<dataclass>>
-    +center_x : float
-    +center_y : float
-    +radius : float
-}
-
 class SwitchConfig {
     <<dataclass>>
     +id : str
@@ -167,14 +92,12 @@ class SwitchConfig {
     +y : int
     +state : bool
 }
-
 class GateConfig {
     <<dataclass>>
     +x : int
     +y : int
     +open_if : dict
 }
-
 class TeleporterConfig {
     <<dataclass>>
     +id : str
@@ -182,14 +105,12 @@ class TeleporterConfig {
     +y : int
     +target_id : str
 }
-
 class KeyConfig {
     <<dataclass>>
     +id : str
     +x : int
     +y : int
 }
-
 class ChestConfig {
     <<dataclass>>
     +id : str
@@ -197,7 +118,6 @@ class ChestConfig {
     +y : int
     +key_id : str
 }
-
 class ParsedHeader {
     <<dataclass>>
     +width : int
@@ -209,36 +129,35 @@ class ParsedHeader {
     +chests_data : list
     +map_start_index : int
 }
-
-class MapParser {
-    <<module>>
-    +parse_header(lines: list) ParsedHeader
-    -_require_positive_int(config: dict, key: str) int
-    -_optional_list(config: dict, key: str) list
-    +parse_map_rows(lines: list, map_start_index: int, height: int) list
-    +build_grid(rows: list, width: int, height: int) tuple
-    -_cell_from_char(char: str) GridCell
-    -_parse_switch_state(value: object) bool
-    +parse_switches(data: list) tuple
-    +parse_gates(data: list) tuple
-    +parse_teleporters(data: list) tuple
-    +parse_keys(data: list) tuple
-    +parse_chests(data: list, known_key_ids: set) tuple
-    +validate_formula(formula: object, known_ids: set, depth: int) None
-    +evaluate_formula(formula: object, switch_states: dict, depth: int) bool
+class SpinnerBounds {
+    <<dataclass>>
+    +min_x : int
+    +max_x : int
+    +min_y : int
+    +max_y : int
+}
+class BatBounds {
+    <<dataclass>>
+    +center_x : float
+    +center_y : float
+    +radius : float
 }
 
+%% ───── PARSING & CARTE ─────
+class MapParser {
+    <<module>>
+    +parse_header(lines) ParsedHeader
+    +parse_map_rows(lines, start, height) list
+    +build_grid(rows, width, height) tuple
+    +parse_switches(data) tuple
+    +parse_gates(data) tuple
+    +parse_teleporters(data) tuple
+    +parse_keys(data) tuple
+    +parse_chests(data, known_key_ids) tuple
+    +validate_formula(formula, known_ids, depth) None
+    +evaluate_formula(formula, switch_states, depth) bool
+}
 class Map {
-    -__width : int
-    -__height : int
-    -__player_start_x : int
-    -__player_start_y : int
-    -__grid : tuple
-    -__switch_configs : tuple
-    -__gate_configs : tuple
-    -__teleporter_configs : tuple
-    -__key_configs : tuple
-    -__chest_configs : tuple
     +width : int
     +height : int
     +player_start_x : int
@@ -248,49 +167,36 @@ class Map {
     +teleporter_configs : tuple
     +key_configs : tuple
     +chest_configs : tuple
-    +get(x: int, y: int) GridCell
-    +from_file(path: str) Map
-    +from_string(text: str) Map
+    +get(x, y) GridCell
+    +cells() Iterator
+    +from_file(path) Map$
+    +from_string(text) Map$
     -_validate_entity_positions() None
+    -_validate_entity_group(configs, cell, name) set
 }
-
-class MapHelpers {
-    <<module>>
-    +spinner_bounds(game_map: Map, x: int, y: int) SpinnerBounds
-    +bat_bounds(game_map: Map, x: int, y: int, radius: float) BatBounds
+class MapModule {
+    <<module map.py>>
+    +spinner_bounds(map, x, y) SpinnerBounds
+    +bat_bounds(map, x, y, radius) BatBounds
 }
-
-MapParser --> ParsedHeader
-MapParser --> GridCell
-MapParser --> SwitchConfig
-MapParser --> GateConfig
-MapParser --> TeleporterConfig
-MapParser --> KeyConfig
-MapParser --> ChestConfig
-MapParser --> InvalidMapFileException
-
-Map --> GridCell
-Map --> SwitchConfig
-Map --> GateConfig
-Map --> TeleporterConfig
-Map --> KeyConfig
-Map --> ChestConfig
-Map --> InvalidMapFileException
+MapParser ..> ParsedHeader
+MapParser ..> GridCell
+MapParser ..> InvalidMapFileException
 Map ..> MapParser : parse et valide
-MapHelpers --> Map
-MapHelpers --> SpinnerBounds
-MapHelpers --> BatBounds
+Map o-- GridCell
+Map o-- SwitchConfig
+Map o-- GateConfig
+Map o-- TeleporterConfig
+Map o-- KeyConfig
+Map o-- ChestConfig
+MapModule ..> Map
 
-%% ─────────────────────────────
-%% LEVEL / CONSTRUCTION DU MONDE
-%% ─────────────────────────────
-
+%% ───── CONSTRUCTION DU MONDE (level.py) ─────
 class LevelModule {
     <<module>>
-    +grid_to_pixels(i: int) int
-    +build_level(game_map: Map) Level
+    +grid_to_pixels(i) int
+    +build_level(map) Level
 }
-
 class Level {
     <<dataclass>>
     +world_width : int
@@ -300,9 +206,9 @@ class Level {
     +ices : SpriteList
     +crystals : SpriteList
     +spinners : SpriteList
-    +holes : SpriteList
     +bats : SpriteList
     +blobs : SpriteList
+    +holes : SpriteList
     +switches : SpriteList
     +gates : SpriteList
     +teleporters : SpriteList
@@ -315,278 +221,177 @@ class Level {
     +teleporter_infos : list
     +key_infos : list
     +chest_infos : list
-    +remove_enemy_sprite(sprite: TextureAnimationSprite) None
+    +remove_enemy_sprite(sprite) None
 }
-
-class SwitchInfo {
-    <<type alias>>
-    Sprite + switch_id
+class Infos {
+    <<type aliases>>
+    SwitchInfo = tuple~Sprite, str~
+    GateInfo = tuple~Sprite, GateConfig~
+    TeleporterInfo = tuple~Sprite, TeleporterConfig~
+    KeyInfo = tuple~Sprite, KeyConfig~
+    ChestInfo = tuple~Sprite, ChestConfig~
 }
+LevelModule ..> Map
+LevelModule ..> Level
+LevelModule ..> NavMesh
+LevelModule ..> BlobEnemy
+LevelModule ..> SpinnerEnemy
+LevelModule ..> BatEnemy
+Level o-- Enemy
 
-class GateInfo {
-    <<type alias>>
-    Sprite + GateConfig
-}
-
-class TeleporterInfo {
-    <<type alias>>
-    Sprite + TeleporterConfig
-}
-
-class KeyInfo {
-    <<type alias>>
-    TextureAnimationSprite + KeyConfig
-}
-
-class ChestInfo {
-    <<type alias>>
-    TextureAnimationSprite + ChestConfig
-}
-
-LevelModule --> Map
-LevelModule --> Level
-LevelModule --> Textures
-LevelModule --> Constants
-LevelModule --> NavMesh
-LevelModule --> BlobEnemy
-LevelModule --> SpinnerEnemy
-LevelModule --> BatEnemy
-
-Level --> Enemy
-Level --> SwitchInfo
-Level --> GateInfo
-Level --> TeleporterInfo
-Level --> KeyInfo
-Level --> ChestInfo
-
-%% ─────────────────────────────
-%% ENNEMIS
-%% ─────────────────────────────
-
+%% ───── ENNEMIS ─────
 class EnemyUpdateContext {
-    <<dataclass>>
+    <<dataclass frozen>>
     +player : Player
     +line_of_sight_walls : SpriteList
     +is_ghost_active : bool
 }
-
 class Enemy {
     <<abstract>>
     +sprite : TextureAnimationSprite
-    +update(context: EnemyUpdateContext) None*
+    +update(context) None*
 }
-
 class SpinnerEnemy {
     <<dataclass>>
-    +sprite : TextureAnimationSprite
     +min_x : int
     +max_x : int
     +min_y : int
     +max_y : int
-    +from_bounds(sprite, min_x, max_x, min_y, max_y, is_horizontal) SpinnerEnemy
-    +update(context: EnemyUpdateContext) None
+    +from_bounds(sprite, bounds, is_horizontal) SpinnerEnemy$
+    +update(context) None
 }
-
 class BatEnemy {
     <<dataclass>>
-    +sprite : TextureAnimationSprite
     +bounds : BatBounds
     +rng : Random
     +frame_count : int
-    +__post_init__() None
-    +update(context: EnemyUpdateContext) None
-    -_choose_random_direction() None
-    -_set_direction(angle: float) None
+    +update(context) None
+    -_set_direction(angle) None
 }
-
 class BlobEnemy {
     <<dataclass>>
-    +sprite : TextureAnimationSprite
     +navmesh : Graph
     +navmesh_subdivisions : int
     +possible_destinations : list
-    +rng : Random
     +destination : Position
     +path : Path
-    +__post_init__() None
-    +update(context: EnemyUpdateContext) None
-    -_position() Position
-    -_pick_new_destination() Position
-    -_has_arrived() bool
+    +update(context) None
     -_visible_player_position(context) Position
     -_refresh_path() None
     -_advance_along_path() None
 }
-
 class BlobModule {
-    <<module>>
+    <<module blob.py>>
     +Position : type alias
     +Path : type alias
-    +BLOB_DESTINATION_OBSTACLES : tuple
-    -_cell_center(cell_x: int, cell_y: int) Position
-    +build_possible_destinations(game_map: Map, cell_x: int, cell_y: int) list
+    +build_possible_destinations(map, x, y) list
 }
-
 Enemy <|-- SpinnerEnemy
 Enemy <|-- BatEnemy
 Enemy <|-- BlobEnemy
-Enemy --> EnemyUpdateContext
+Enemy ..> EnemyUpdateContext
 EnemyUpdateContext --> Player
-SpinnerEnemy --> BatBounds
-BlobEnemy --> NavMesh
-BlobModule --> BlobEnemy
-BlobModule --> Map
-BlobModule --> GridCell
+BatEnemy --> BatBounds
+BlobEnemy ..> NavMesh
+BlobModule ..> Map
 
-%% ─────────────────────────────
-%% NAVMESH / PATHFINDING
-%% ─────────────────────────────
-
+%% ───── NAVMESH (navmesh.py) ─────
 class NavMesh {
     <<module>>
     +NodeType : type alias
-    -_is_obstacle_for_blob(cell: GridCell) bool
-    -_node_pixel_position(ix: int, iy: int, n: int) tuple
-    +build_navmesh(game_map: Map, n: int) Graph
-    +nearest_node(graph: Graph, px: float, py: float, n: int) NodeType
-    +find_path(graph: Graph, src_px: float, src_py: float, dst_px: float, dst_py: float, n: int) list
+    +BLOB_DESTINATION_OBSTACLES : tuple
+    +build_navmesh(map, n) Graph
+    +nearest_node(graph, px, py, n) NodeType
+    +find_path(graph, src, dst, n) list
 }
+NavMesh ..> Map
+NavMesh ..> GridCell
+BlobModule ..> NavMesh
 
-NavMesh --> Map
-NavMesh --> GridCell
-
-%% ─────────────────────────────
-%% ARMES
-%% ─────────────────────────────
-
+%% ───── ARMES ─────
 class Weapon {
     <<abstract>>
-    +use(player: Player) None*
-    +update(player: Player, delta_time: float) None*
+    +use(player) None*
+    +update(player, delta_time) None*
     +draw() None*
     +is_active() bool*
-    +check_collisions(sprite_list: SpriteList) list*
+    +check_collisions(sprite_list) list*
     +on_hit() None*
     +can_hit_enemies() bool
     +can_toggle_switches() bool
     +can_collect_crystals() bool
     +can_hit_obstacles() bool
 }
-
 class ActiveWeapon {
     <<enumeration>>
     BOOMERANG
     SWORD
 }
-
 class BoomerangState {
     <<enumeration>>
     INACTIVE
     LAUNCHING
     RETURNING
 }
-
 class Boomerang {
     +state : BoomerangState
-    +start_x : float
-    +start_y : float
     +dir_x : float
     +dir_y : float
-    +launch(player: Player) None
-    +update_boomerang(player: Player) None
-    +update_animation(delta_time: float) None
+    +launch(player) None
+    +update_boomerang(player) None
 }
-
 class BoomerangWeapon {
     +boomerang : Boomerang
-    +sprites : SpriteList
     +hit_sprite_ids : set
-    +use(player: Player) None
-    +update(player: Player, delta_time: float) None
-    +draw() None
+    +use(player) None
     +is_active() bool
     +is_launching() bool
-    +check_collisions(sprite_list: SpriteList) list
+    +check_collisions(list) list
     +on_hit() None
-    +can_toggle_switches() bool
-    +can_hit_obstacles() bool
 }
-
 class SwordWeapon {
     +sprite : TextureAnimationSprite
     +hitbox : Sprite
-    +elapsed_time : float
     +active : bool
     +hit_sprite_ids : set
-    +use(player: Player) None
-    +update(player: Player, delta_time: float) None
-    +draw() None
-    +is_active() bool
-    +check_collisions(sprite_list: SpriteList) list
-    +on_hit() None
-    +can_toggle_switches() bool
-    +can_collect_crystals() bool
-    -_animation_for_direction(direction: Direction) TextureAnimation
-    -_place_hitbox(player: Player) None
+    +use(player) None
+    +update(player, delta_time) None
+    +check_collisions(list) list
+    -_place_hitbox(player) None
 }
-
 class WeaponSystem {
-    +boomerang_weapon : BoomerangWeapon
-    +sword_weapon : SwordWeapon
     +weapons : tuple~Weapon~
     +active_weapon : ActiveWeapon
     +active_weapon_icon : Sprite
     +switch_active_weapon() None
-    +use_active_weapon(player: Player) None
-    +launch_boomerang(player: Player) None
-    +update(player: Player, delta_time: float) None
+    +use_active_weapon(player) None
+    +update(player, delta_time) None
     +draw() None
-    +draw_active_weapon_icon(window_height: int) None
     +has_active_weapon() bool
-    +check_enemy_collisions(sprite_list: SpriteList) list
-    +check_switch_collisions(sprite_list: SpriteList) list
-    +check_crystal_collisions(sprite_list: SpriteList) list
-    +check_obstacle_collisions(sprite_list: SpriteList) list
-    -_check_collisions(sprite_list: SpriteList, predicate: Callable) list
-    -_active_weapon() Weapon
-    -_active_weapon_icon_texture() Texture
+    +check_enemy_collisions(list) list
+    +check_switch_collisions(list) list
+    +check_crystal_collisions(list) list
+    +check_obstacle_collisions(list) list
 }
-
 Weapon <|-- BoomerangWeapon
 Weapon <|-- SwordWeapon
 BoomerangWeapon --> Boomerang
 Boomerang --> BoomerangState
-SwordWeapon --> Direction
+SwordWeapon ..> Direction
+WeaponSystem o-- Weapon
 WeaponSystem --> ActiveWeapon
-WeaponSystem --> BoomerangWeapon
-WeaponSystem --> SwordWeapon
-WeaponSystem --> Weapon
-WeaponSystem --> Player
 
-%% ─────────────────────────────
-%% POUVOIRS
-%% ─────────────────────────────
-
+%% ───── POUVOIRS ─────
 class Power {
     <<abstract>>
-    +name : str*
-    +on_activate(player: Player, enemies: list) None*
-    +on_deactivate(player: Player, enemies: list) None*
-}
-
-class GhostPower {
     +name : str
-    +on_activate(player: Player, enemies: list) None
-    +on_deactivate(player: Player, enemies: list) None
+    +on_activate(player, enemies) None*
+    +on_deactivate(player, enemies) None*
 }
-
-class FreezePower {
-    +name : str
-    +on_activate(player: Player, enemies: list) None
-    +on_deactivate(player: Player, enemies: list) None
-}
-
+class GhostPower
+class FreezePower
 class PowerSystem {
+    <<dataclass>>
     +player : Player
     +enemies : list~Enemy~
     -_active_power : Power
@@ -598,66 +403,40 @@ class PowerSystem {
     +active_power_name : str
     +remaining_frames : int
 }
-
 Power <|-- GhostPower
 Power <|-- FreezePower
-PowerSystem --> Power
+PowerSystem o-- Power
 PowerSystem --> Player
-PowerSystem --> Enemy
 
-%% ─────────────────────────────
-%% SYSTÈMES
-%% ─────────────────────────────
-
+%% ───── SYSTÈMES ─────
 class GateSystem {
     <<dataclass>>
-    +switch_infos : list~SwitchInfo~
-    +gate_infos : list~GateInfo~
+    +switch_infos : list
+    +gate_infos : list
     +walls : SpriteList
     +gates : SpriteList
     -_switch_state_map : dict
-    +__post_init__() None
     +update() None
-    +toggle_switch(switch: Sprite) None
-    -_switch_states() dict
-    -_set_gate_open(gate: Sprite, is_open: bool) None
+    +toggle_switch(switch) None
+    -_set_gate_open(gate, is_open) None
 }
-
 class CollisionResult {
-    <<dataclass>>
+    <<dataclass frozen>>
     +should_restart : bool
     +score_delta : int
     +teleport_destination : tuple
     +chest_message : str
 }
-
 class CollisionSystem {
     <<dataclass>>
     +level : Level
     +player : Player
     +weapon_system : WeaponSystem
     +gate_system : GateSystem
-    +crystals_sound : Sound
     +power_system : PowerSystem
-    -_teleport_cooldown : int
-    -_collected_key_ids : set
-    -_opening_chests : set
+    +crystals_sound : Sound
     +update() CollisionResult
-    -_player_touches_enemy() bool
-    -_player_falls_in_hole() bool
-    -_collect_player_crystals() int
-    -_collect_weapon_crystals() int
-    -_collect_crystal(crystal: TextureAnimationSprite) None
-    -_handle_weapon_enemy_hits() None
-    -_remove_enemy_hit(enemy_sprite: TextureAnimationSprite, weapon: Weapon) None
-    -_handle_weapon_switch_hits() None
-    -_handle_weapon_obstacle_hits() None
-    -_handle_key_pickups() None
-    -_handle_chest_openings() str
-    -_update_opening_chests() None
-    -_check_teleportation() tuple
 }
-
 class CameraController {
     <<dataclass>>
     +camera : Camera2D
@@ -667,115 +446,50 @@ class CameraController {
     +margin_x : int
     +margin_y : int
     +center_on_player() None
-    +update(screen_width: int, screen_height: int) None
-    -_clamp_camera_axis(camera_position: float, screen_size: int, world_size: int) float
+    +update(screen_width, screen_height) None
 }
-
-GateSystem --> SwitchInfo
-GateSystem --> GateInfo
-GateSystem ..> MapParser : evaluate_formula()
-
+GateSystem ..> MapParser : evaluate_formula
 CollisionSystem --> CollisionResult
 CollisionSystem --> Level
-CollisionSystem --> Player
 CollisionSystem --> WeaponSystem
 CollisionSystem --> GateSystem
 CollisionSystem --> PowerSystem
-CollisionSystem --> Weapon
-
 CameraController --> Player
 
-%% ─────────────────────────────
-%% ASSETS ET CONSTANTES
-%% ─────────────────────────────
-
+%% ───── ASSETS & CONSTANTES ─────
 class Constants {
     <<module>>
-    +WINDOW_TITLE
-    +SCALE
     +TILE_SIZE
+    +SCALE
     +PLAYER_MOVEMENT_SPEED
-    +SPINNER_MOVEMENT_SPEED
-    +BOOMERANG_SPEED
-    +BOOMERANG_MAX_DISTANCE
-    +BAT_MOVEMENT_SPEED
-    +BAT_MOVEMENT_RADIUS
-    +SWORD_ATTACK_DURATION
-    +SWORD_HITBOX_SIZE
-    +SWORD_HITBOX_OFFSET
-    +BLOB_PATROL_RADIUS
-    +BLOB_MOVEMENT_SPEED
-    +BLOB_LINE_OF_SIGHT_MAX
     +BLOB_NAVMESH_SUBDIVISIONS
-    +ICE_FRICTION
-    +GROUND_FRICTION
-    +ICE_MAX_SPEED
     +POWER_DURATION_FRAMES
-    +GHOST_ALPHA
+    +MAX_FORMULA_DEPTH
 }
-
 class Textures {
     <<module>>
-    -_load_grid(file, columns, rows, tile_size) list
-    -_load_animation_strip(file, frame_count, frame_duration, tile_size) TextureAnimation
-    +TEXTURE_GRASS
-    +TEXTURE_BUSH
-    +TEXTURE_HOLE
-    +TEXTURE_SWITCH_OFF
-    +TEXTURE_SWITCH_ON
-    +TEXTURE_GATE_OPEN
-    +TEXTURE_GATE_CLOSED
-    +TEXTURE_TELEPORTER
-    +TEXTURE_ICE
-    +ANIMATION_PLAYER_IDLE_DOWN
-    +ANIMATION_PLAYER_IDLE_UP
-    +ANIMATION_PLAYER_IDLE_LEFT
-    +ANIMATION_PLAYER_IDLE_RIGHT
-    +ANIMATION_SWORD_DOWN
-    +ANIMATION_SWORD_UP
-    +ANIMATION_SWORD_LEFT
-    +ANIMATION_SWORD_RIGHT
-    +ANIMATION_BOOMERANG
-    +ANIMATION_CRYSTAL
-    +ANIMATION_SPINNERS
-    +ANIMATION_BAT
-    +ANIMATION_BLOB
-    +ANIMATION_KEY
-    +ANIMATION_CHEST
-    +ANIMATION_CHEST_OPEN
-    +ANIMATION_CHEST_STAYS_OPEN
+    +TEXTURE_GRASS / BUSH / HOLE / ICE
+    +TEXTURE_SWITCH / GATE / TELEPORTER
+    +ANIMATION_PLAYER / SWORD / BOOMERANG
+    +ANIMATION_CRYSTAL / SPINNERS / BAT / BLOB
+    +ANIMATION_KEY / CHEST
 }
-
 class Sounds {
     <<module>>
     +CRYSTALS_SOUND : Sound
 }
 
-GameView --> Constants
-GameView --> Sounds
-LevelModule --> Textures
-Player --> Textures
-WeaponSystem --> Textures
-SwordWeapon --> Textures
-Boomerang --> Textures
-GateSystem --> Textures
-CollisionSystem --> Textures
-
-%% ─────────────────────────────
-%% ORCHESTRATION PRINCIPALE
-%% ─────────────────────────────
-
+%% ───── ORCHESTRATION ─────
 GameView --> Level
 GameView --> Player
+GameView --> WeaponSystem
 GameView --> GateSystem
 GameView --> CollisionSystem
-GameView --> WeaponSystem
 GameView --> PowerSystem
 GameView --> CameraController
-GameView --> EnemyUpdateContext
-
-LevelModule ..> Map
-Map --> LevelModule : données validées
+GameView ..> EnemyUpdateContext
+LevelModule ..> Textures
+```
 
 # DESIGN.md
 
@@ -803,7 +517,7 @@ Fonctions :
 - `parse_switches / parse_gates / parse_teleporters / parse_keys / parse_chests` : valident et convertissent chaque liste d'entités.
 - `validate_formula / evaluate_formula` : gèrent les formules logiques récursives (`and`, `or`, `not`, `switch_is_on`) pour les conditions d'ouverture des portails.
 
-**Méthodologies** : Les erreurs sont signalées au chargement avec `InvalidMapFileException`, pas à l'exécution. La récursion bornée (`_depth <= 10`) dans `validate_formula` protège contre les formules infiniment imbriquées. Ce module est entièrement indépendant d'Arcade, ce qui le rend testable sans fenêtre graphique.
+**Méthodologies** : Les erreurs sont signalées au chargement avec `InvalidMapFileException`, pas à l'exécution. La récursion bornée dans `validate_formula` protège contre les formules infiniment imbriquées. Ce module est entièrement indépendant d'Arcade, ce qui le rend testable sans fenêtre graphique.
 
 ---
 
@@ -907,7 +621,7 @@ Les formules sont représentées comme des `dict` imbriqués, directement tels q
 
 *S'il y a n interrupteurs et m portails, quelle est la complexité à chaque frame ?*
 
-Avec des formules simples (`switch_is_on` uniquement) : `O(m)`, on évalue une formule en `O(1)` par portail. Avec des formules composées de profondeur `d` : `O(m · d)`. La validation à la construction garantit que `d ≤ 10`.
+Avec des formules simples (`switch_is_on` uniquement) : `O(m)`, on évalue une formule en `O(1)` par portail. Avec des formules composées de profondeur `d` : `O(m · d)`. La validation à la construction garantit que `d ≤ 20` (ou autre constante).
 
 **Méthodologies** : Encapsulation de l'état des interrupteurs. La logique de formule est déléguée à `map_parser.evaluate_formula` (séparation des responsabilités). L'usage d'un `dict` comme clé dans `_switch_state_map` permet une lookup en `O(1)` grâce au haschage.
 
@@ -997,7 +711,7 @@ Via `BoomerangState` (Enum : `INACTIVE`, `LAUNCHING`, `RETURNING`). L'Enum est p
 
 ## Analyse des performances
 
-Complexité algorithmique — Chargement d'une map
+Complexité algorithmique du chargement d'une map
 Facteur choisi : taille de la carte, exprimée en nombre de cellules m = width × height, avec n×n nœuds par cellule dans le navmesh.
 Le chargement d'une map comprend deux grandes étapes : le parsing du fichier (géré par map_parser.py) et la construction du monde (build_level dans level.py). Le parsing est clairement O(m) : on parcourt chaque ligne et chaque caractère exactement une fois. Ce n'est pas l'étape intéressante.
 L'étape dominante est la construction du navmesh dans build_navmesh. On crée jusqu'à m · n² nœuds candidats. Pour chacun, on vérifie s'il est trop proche d'un buisson en inspectant les 9 cellules voisines, ce qui est O(1). On connecte ensuite chaque nœud retenu à ses 8 voisins potentiels dans la grille de sous-nœuds, encore O(1) par nœud. La construction du graphe est donc O(m · n²).
@@ -1006,13 +720,13 @@ Le choix de n = 3 (valeur de BLOB_NAVMESH_SUBDIVISIONS) multiplie le nombre de n
 La validation des entités de la carte (_validate_entity_positions dans map.py) est aussi O(m) grâce à l'usage de set pour stocker les positions vues : la vérification d'appartenance est O(1) au lieu de O(m) avec une liste. Sans ce choix, la validation serait O(m²).
 En résumé, la complexité du chargement est dominée par O(m · n²), avec m la taille de la carte en cellules et n le nombre de subdivisions par côté de cellule.
 
-Complexité algorithmique — on_update
+Complexité algorithmique de on_update
 Facteur choisi : nombre de nœuds dans le navmesh, V = m · n², qui dépend de la taille de la carte et des subdivisions.
 À chaque frame, on_update appelle successivement la physique du joueur, la mise à jour des ennemis, et la détection des collisions. Analysons les parties non triviales.
 La mise à jour de chaque blob dans BlobEnemy.update peut déclencher un appel à _refresh_path, qui appelle find_path. Celui-ci contient deux étapes coûteuses. D'abord, nearest_node parcourt tous les nœuds du graphe pour trouver le plus proche : c'est O(V). Ensuite, nx.dijkstra_path exécute l'algorithme de Dijkstra avec un tas binaire : O((V + E) · log V) avec E ≈ 8V (8-connexité), soit O(V · log V). La recherche de chemin domine donc, avec O(V · log V) par blob et par frame où le chemin est recalculé.
 En pratique, le chemin n'est recalculé que lorsque la destination change (arrivée à destination, ou détection du joueur). Cela limite les recalculs, mais dans le pire cas (blob qui suit le joueur en mouvement), le recalcul a lieu à chaque frame.
-La détection des collisions dans CollisionSystem est le point le plus intéressant. Les SpriteList statiques (murs, trous, cristaux, interrupteurs) sont construites avec use_spatial_hash=True. Grâce au hachage spatial, arcade.check_for_collision_with_list est O(1) au lieu de O(n) avec n le nombre de sprites dans la liste. C'est un gain critique : sans spatial hash, tester la collision du joueur avec tous les murs serait linéaire en la taille de la carte. En revanche, les SpriteList d'ennemis et du boomerang utilisent use_spatial_hash=False car ils bougent à chaque frame — recalculer le hash à chaque mouvement coûterait plus cher que le gain.
-La mise à jour des portes dans GateSystem est O(p · d) avec p le nombre de portes et d la profondeur maximale des formules (bornée à 10 par validation). Le lookup des états d'interrupteurs se fait via un dict, donc en O(1). Pour le nombre de portes et d'interrupteurs typique d'une carte, cette étape est négligeable.
+La détection des collisions dans CollisionSystem est le point le plus intéressant. Les SpriteList statiques (murs, trous, cristaux, interrupteurs) sont construites avec use_spatial_hash=True. Grâce au hachage spatial, arcade.check_for_collision_with_list est O(1) au lieu de O(n) avec n le nombre de sprites dans la liste. C'est un gain critique : sans spatial hash, tester la collision du joueur avec tous les murs serait linéaire en la taille de la carte. En revanche, les SpriteList d'ennemis et du boomerang utilisent use_spatial_hash=False car ils bougent à chaque frame et recalculer le hash à chaque mouvement coûterait plus cher que le gain.
+La mise à jour des portes dans GateSystem est O(p · d) avec p le nombre de portes et d la profondeur maximale des formules (bornée à 20 par validation). Le lookup des états d'interrupteurs se fait via un dict, donc en O(1). Pour le nombre de portes et d'interrupteurs typique d'une carte, cette étape est négligeable.
 Au total, la complexité d'un on_update est dominée par O(k · V · log V) avec k le nombre de blobs et V = m · n² le nombre de nœuds du navmesh.
 
 ### Benchmark de la boucle de jeu

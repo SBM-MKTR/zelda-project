@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
 import math
 import random
-
 import arcade
 import networkx as nx
-
 from constants import (
     BLOB_ARRIVAL_THRESHOLD,
     BLOB_LINE_OF_SIGHT_MAX,
@@ -14,19 +12,11 @@ from constants import (
 )
 from enemies import Enemy, EnemyUpdateContext
 from map import Map
-from map_types import GridCell
-from navmesh import NodeType, find_path
-from power_system import PowerSystem
+from navmesh import NodeType, find_path, BLOB_DESTINATION_OBSTACLES
 
 
 Position = tuple[float, float]
 Path = list[Position]
-
-BLOB_DESTINATION_OBSTACLES = (
-    GridCell.BUSH,
-    GridCell.HOLE,
-    GridCell.GATE,
-)
 
 
 def _cell_center(cell_x: int, cell_y: int) -> Position:
@@ -109,21 +99,20 @@ class BlobEnemy(Enemy):
             <= BLOB_ARRIVAL_THRESHOLD
         )
 
-    def _visible_player_position(
-        self,
-        context: EnemyUpdateContext,
-    ) -> Position | None:
+    def _visible_player_position(self, context: EnemyUpdateContext) -> Position | None:
         observer = self._position()
         target = (context.player.center_x, context.player.center_y)
 
+        dx = target[0] - observer[0]
+        dy = target[1] - observer[1]
+        if dx * dx + dy * dy > BLOB_LINE_OF_SIGHT_MAX ** 2:
+            return None
+
         if arcade.has_line_of_sight(
-            observer,
-            target,
-            context.line_of_sight_walls,
+            observer, target, context.line_of_sight_walls,
             max_distance=BLOB_LINE_OF_SIGHT_MAX,
         ):
             return target
-
         return None
 
     def _refresh_path(self) -> None:

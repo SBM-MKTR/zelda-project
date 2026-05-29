@@ -180,6 +180,13 @@ def _cell_from_char(char: str) -> GridCell:
             raise InvalidMapFileException(f"invalid map character: {char!r}")
 
 
+def _check_unique_id(entity_id: str, seen_ids: set[str], entity_name: str) -> None:
+    """Raises if entity_id was already seen, otherwise records it."""
+    if entity_id in seen_ids:
+        raise InvalidMapFileException(f"duplicate {entity_name} id: {entity_id!r}")
+    seen_ids.add(entity_id)
+
+
 def _parse_switch_state(value: object) -> bool:
     match value:
         case None | False | "off":
@@ -210,11 +217,7 @@ def parse_switches(data: list) -> tuple[SwitchConfig, ...]:
                     f"invalid switch entry: {item!r}"
                 )
 
-        if switch_id in seen_ids:
-            raise InvalidMapFileException(
-                f"duplicate switch id: {switch_id!r}"
-                )
-        seen_ids.add(switch_id)
+        _check_unique_id(switch_id, seen_ids, "switch")
 
         state = _parse_switch_state(rest.get("state"))
         result.append(SwitchConfig(id=switch_id, x=x, y=y, state=state))
@@ -260,9 +263,7 @@ def parse_teleporters(data: list) -> tuple[TeleporterConfig, ...]:
                     f"invalid teleporter entry: {item!r}"
                 )
 
-        if tp_id in seen_ids:
-            raise InvalidMapFileException(f"duplicate teleporter id: {tp_id!r}")
-        seen_ids.add(tp_id)
+        _check_unique_id(tp_id, seen_ids, "teleporter")
 
         result.append(TeleporterConfig(id=tp_id, x=x, y=y, target_id=target_id))
 
@@ -290,9 +291,7 @@ def parse_keys(data: list) -> tuple[KeyConfig, ...]:
             case _:
                 raise InvalidMapFileException(f"invalid key entry: {item!r}")
 
-        if key_id in seen_ids:
-            raise InvalidMapFileException(f"duplicate key id: {key_id!r}")
-        seen_ids.add(key_id)
+        _check_unique_id(key_id, seen_ids, "key")
 
         result.append(KeyConfig(id=key_id, x=x, y=y))
 
@@ -315,9 +314,7 @@ def parse_chests(data: list, known_key_ids: set[str]) -> tuple[ChestConfig, ...]
             case _:
                 raise InvalidMapFileException(f"invalid chest entry: {item!r}")
 
-        if chest_id in seen_ids:
-            raise InvalidMapFileException(f"duplicate chest id: {chest_id!r}")
-        seen_ids.add(chest_id)
+        _check_unique_id(chest_id, seen_ids, "chest")
 
         if key_id not in known_key_ids:
             raise InvalidMapFileException(

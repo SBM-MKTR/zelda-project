@@ -6,9 +6,11 @@ from constants import TILE_SIZE
 
 NodeType = tuple[int, int]
 
-
-def _is_obstacle_for_blob(cell: GridCell) -> bool:
-    return cell in (GridCell.BUSH, GridCell.HOLE, GridCell.GATE)
+BLOB_DESTINATION_OBSTACLES = (
+    GridCell.BUSH,
+    GridCell.HOLE,
+    GridCell.GATE,
+)
 
 
 def _node_pixel_position(ix: int, iy: int, n: int) -> tuple[float, float]:
@@ -37,7 +39,7 @@ def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
             cell_x = ix // n
             cell_y = iy // n
 
-            if _is_obstacle_for_blob(game_map.get(cell_x, cell_y)):
+            if game_map.get(cell_x, cell_y) in BLOB_DESTINATION_OBSTACLES:
                 continue
 
             if n > 1:
@@ -79,21 +81,13 @@ def build_navmesh(game_map: Map, n: int = 1) -> nx.Graph[NodeType]:
 
 
 def nearest_node(graph: nx.Graph[NodeType], px: float, py: float, n: int) -> NodeType:
-    best_node: NodeType | None = None
-    best_dist = float("inf")
-
-    for node in graph.nodes:
-        ix, iy = node
-        npx, npy = _node_pixel_position(ix, iy, n)
-        d = math.hypot(px - npx, py - npy)
-        if d < best_dist:
-            best_dist = d
-            best_node = node
-
-    if best_node is None:
+    if len(graph.nodes) == 0:
         raise ValueError("navmesh is empty, cannot find nearest node")
 
-    return best_node
+    return min(
+        graph.nodes,
+        key=lambda node: math.dist((px, py), _node_pixel_position(node[0], node[1], n)),
+    )
 
 def find_path(
     graph: nx.Graph[NodeType],

@@ -43,6 +43,8 @@ class GameView(arcade.View):
     score: int
     _initial_crystal_count: int
     score_text: Final[arcade.Text]
+    power_text: Final[arcade.Text]
+    chest_message_text: Final[arcade.Text]
     holes: Final[arcade.SpriteList[arcade.Sprite]]
     boomerang: Final[Boomerang]
     bats: Final[arcade.SpriteList[arcade.TextureAnimationSprite]]

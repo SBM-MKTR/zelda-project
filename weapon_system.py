@@ -101,9 +101,6 @@ class WeaponSystem:
     def use_active_weapon(self, player: Player) -> None:
         self._active_weapon().use(player)
 
-    def launch_boomerang(self, player: Player) -> None:
-        self.boomerang_weapon.use(player)
-
     def update(self, player: Player, delta_time: float) -> None:
         for weapon in self.weapons:
             weapon.update(player, delta_time)
