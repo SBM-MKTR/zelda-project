@@ -302,7 +302,7 @@ wheels = [
 ]
 
 [[package]]
-name = "projet-icc"
+name = "projet-devlog"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
