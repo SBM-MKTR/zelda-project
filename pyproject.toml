@@ -1,7 +1,7 @@
 [project]
-name = "projet-icc"
+name = "projet-devlog"
 version = "0.1.0"
-description = "Add your description here"
+description = "Projet de BA2 de CS-121"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
