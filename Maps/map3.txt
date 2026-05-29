@@ -1,0 +1,84 @@
+width: 41
+height: 17
+switches:
+  - id: sw_a
+    x: 3
+    y: 8
+  - id: sw_b
+    x: 16
+    y: 3
+    state: on
+  - id: sw_c
+    x: 29
+    y: 9
+  - id: sw_d
+    x: 33
+    y: 9
+gates:
+  - x: 13
+    y: 8
+    open_if:
+      switch_is_on: sw_a
+  - x: 27
+    y: 8
+    open_if:
+      and:
+        - switch_is_on: sw_a
+        - not:
+            - switch_is_on: sw_b
+  - x: 36
+    y: 4
+    open_if:
+      or:
+        - and:
+            - switch_is_on: sw_c
+            - not:
+                - switch_is_on: sw_d
+        - and:
+            - switch_is_on: sw_d
+            - not:
+                - switch_is_on: sw_c
+teleporters:
+  - id: t_depart
+    x: 2
+    y: 15
+    target_id: t_ile
+  - id: t_ile
+    x: 37
+    y: 14
+    target_id: t_depart
+keys:
+  - id: k1
+    x: 5
+    y: 5
+  - id: k2
+    x: 24
+    y: 14
+chests:
+  - id: c1
+    x: 2
+    y: 13
+    key_id: k1
+  - id: c2
+    x: 37
+    y: 5
+    key_id: k2
+---
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+x T          x             x  **  x     x
+x      v  *  x      b   k  x  **  x  T  x
+x C          x  S          x  s   x     x
+x     s      x         v   xggggggx  *s x
+x            x   OOOOOOOO  xggggggxxxxxxx
+x       xx   x  xOggggggO  x         *  x
+x       S    x   Ogg*gggO  x ^   ^      x
+x  ^         |   OggggggO  |            x
+x            g   OggggggO  g   b        x
+x    v       x   OO    OO  x            x
+x    k       x             x         C  x
+x    v       x       b     x     xxx|xxxx
+x         *  x  ^          x    x       x
+x P          x          *  x    x  * *  x
+x            x      s      x    x       x
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+---

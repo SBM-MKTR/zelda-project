@@ -7,7 +7,7 @@ from constants import MAX_WINDOW_HEIGHT, MAX_WINDOW_WIDTH, WINDOW_TITLE
 from gameview import GameView
 from map import InvalidMapFileException, Map
 
-DEFAULT_MAP_PATH = "Maps/map1.txt"
+DEFAULT_MAP_PATH = "Maps/map3.txt"
 
 def main() -> None:
     if len(sys.argv) == 1:
